@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f6f4ef" />
+    <script>
+      (() => {
+        let theme = {};
+        try { theme = JSON.parse(localStorage.getItem('await.appearance') || '{}') || {}; } catch {}
+        const mode = ['light', 'dark', 'system'].includes(theme.mode) ? theme.mode : 'system';
+        document.documentElement.dataset.theme = mode === 'system' ? matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light' : mode;
+        document.documentElement.dataset.accent = ['forest', 'ocean', 'plum', 'graphite', 'ember', 'sand'].includes(theme.accent) ? theme.accent : 'forest';
+      })();
+    </script>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link id="await-favicon" rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/plugin-icon.png" />
+    <title>Workspace, work together with agents</title>
+  </head>
+  <body class="antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/app/main.tsx"></script>
+  </body>
+</html>

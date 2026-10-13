@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "await-worker-agent",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": { "bindings": [{ "name": "AWAIT_AGENT", "class_name": "AwaitAgent" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AwaitAgent"] }],
+  "ai": { "binding": "AI" },
+  "vars": {
+    "AWAIT_ORIGIN": "https://await.chat",
+    "AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+  }
+  // Secrets, set with `wrangler secret put`: AWAIT_AGENT_TOKEN (required), ANTHROPIC_API_KEY (optional).
+}

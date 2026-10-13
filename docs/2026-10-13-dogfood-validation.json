@@ -1,0 +1,351 @@
+{
+  "executed_at": "2026-10-13T22:26:38.304Z",
+  "scenario": "await_contributor_guides",
+  "source_commit": "a2aa9e275c4775198b34c91b4b55e0aac4a98969",
+  "execution": "Authenticated codex and claude CLI models, project-scoped MCP tools, Cloudflare hosted workspaces",
+  "outcome": "ready_for_human_review",
+  "approval": "No approval granted; waiting for a person to inspect the checked result in the UI",
+  "changed_paths": [
+    "docs/projects.md",
+    "docs/architecture.md"
+  ],
+  "acceptance_tests_unchanged": true,
+  "candidates": [
+    {
+      "provider": "codex",
+      "commit": "c1ac55b8e4c70d4cf35bb48a5664def06e2a064d",
+      "run_id": "d1f64aac-468c-4a81-9f7d-41d7bd7ce951",
+      "requirements_revision": 1,
+      "summary": "Updated docs/projects.md only with a concise first assigned project walkthrough covering card-linked run creation, asynchronous hosted work, exact pushed candidate submission, fresh combined integration checks, and human-only publication. Explicitly distinguishes automated fixture-review authorization from a person reviewing the product."
+    },
+    {
+      "provider": "claude",
+      "commit": "3bdb90c201a98cdb138bec35ce720c7b295e1c41",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "requirements_revision": 1,
+      "summary": "docs/architecture.md only. Adds \"Repository inspection through the Artifacts binding\": what the Worker and projects coordinator do through the ARTIFACTS binding without a container (forks, token issue/revoke, candidate existence and 500-commit ancestry check, bounded tree comparison and metadata-only large/binary files for read_candidate_files). Adds \"What still needs a checkout\": hosted commands, prepare, check, publish, branch delete/restore, or an agent's own clone with the get_project_run_token fork token. Appends \"Workspace and integration boundaries today\" under Scaling shape: single-object coordination, 100 projects / 32 runs, workspace-wide event sequence, one hosted command per run, per-job limits, 1 to 8 candidates per integration, and what a passing check does and does not prove. Terminology agreed with the projects.md teammate. No source, tests, lockfiles or config changed."
+    }
+  ],
+  "integration": {
+    "base_commit": "4dcb9a5d6a4f5bcf3a8acd6fa5c90c2827010062",
+    "commit": "80491c9bb378bae651f68ede74c3aa0fc434f593",
+    "status": "ready",
+    "requirements_revision": 1,
+    "check_command": "npm ci && npm ci --prefix webhook-gateway && npm test && npm run build && git diff --check",
+    "exit_code": 0,
+    "image": "cloudflare/debian-trixie",
+    "started_at": 1791930461301,
+    "finished_at": 1791930615749,
+    "elapsed_ms": 154448,
+    "tests": 155,
+    "test_suite_counts": [
+      151,
+      4
+    ]
+  },
+  "tool_observations": {
+    "codex_calls": 27,
+    "codex_explicit_failed_calls": 2,
+    "claude_requested_calls": 48,
+    "note": "Claude transcript calls are requests, not per-call completion receipts. Both submitted candidates were independently read from their repositories."
+  },
+  "execution_receipts": [
+    {
+      "id": "a1000014-0000-4000-8000-000000000014",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "status": "complete",
+      "started_at": 1791930300616,
+      "finished_at": 1791930457525,
+      "exit_code": 0,
+      "commit": "ac5f36992666f0e217969d9f32b87bdafd9c53cb"
+    },
+    {
+      "id": "a1000013-0000-4000-8000-000000000013",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "status": "failed",
+      "started_at": 1791930284814,
+      "finished_at": 1791930284837,
+      "exit_code": 63
+    },
+    {
+      "id": "a1000012-0000-4000-8000-000000000012",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "status": "complete",
+      "started_at": 1791930271637,
+      "finished_at": 1791930272403,
+      "exit_code": 0,
+      "commit": "3bdb90c201a98cdb138bec35ce720c7b295e1c41"
+    },
+    {
+      "id": "a1000011-0000-4000-8000-000000000011",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "status": "failed",
+      "started_at": 1791930235682,
+      "finished_at": 1791930235693,
+      "exit_code": 5
+    },
+    {
+      "id": "a1000010-0000-4000-8000-000000000010",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "status": "failed",
+      "started_at": 1791930222313,
+      "finished_at": 1791930222334,
+      "exit_code": 255
+    },
+    {
+      "id": "40b2e536-8d2b-466d-9044-5524858dd59d",
+      "run_id": "d1f64aac-468c-4a81-9f7d-41d7bd7ce951",
+      "status": "complete",
+      "started_at": 1791930208644,
+      "finished_at": 1791930360154,
+      "exit_code": 0,
+      "commit": "c1ac55b8e4c70d4cf35bb48a5664def06e2a064d"
+    },
+    {
+      "id": "bf54059e-620b-4999-887a-39e9291c4a93",
+      "run_id": "d1f64aac-468c-4a81-9f7d-41d7bd7ce951",
+      "status": "complete",
+      "started_at": 1791930193221,
+      "finished_at": 1791930194886,
+      "exit_code": 0,
+      "commit": "6c2c76545f8ba2aa4035402ed61e56b8eda2267a"
+    },
+    {
+      "id": "a1000009-0000-4000-8000-000000000009",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "status": "failed",
+      "started_at": 1791930189067,
+      "finished_at": 1791930189089,
+      "exit_code": 255
+    },
+    {
+      "id": "9a5965fb-e92c-4e63-9568-9461265f4c5b",
+      "run_id": "d1f64aac-468c-4a81-9f7d-41d7bd7ce951",
+      "status": "complete",
+      "started_at": 1791930169405,
+      "finished_at": 1791930171026,
+      "exit_code": 0,
+      "commit": "388893c69f3f31ca1e453634e882f67f8e516625"
+    },
+    {
+      "id": "a1000008-0000-4000-8000-000000000008",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "status": "complete",
+      "started_at": 1791930169089,
+      "finished_at": 1791930169747,
+      "exit_code": 0,
+      "commit": "7c6769cc55cb562b2f7a6aaa92a9e41ec891c519"
+    },
+    {
+      "id": "a1000007-0000-4000-8000-000000000007",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "status": "complete",
+      "started_at": 1791930149030,
+      "finished_at": 1791930149592,
+      "exit_code": 0,
+      "commit": "05a7b60c6e3975997cbc1543f6d1a316ae9d7408"
+    },
+    {
+      "id": "b984f03b-cbfa-4d95-9948-bf067f58a792",
+      "run_id": "d1f64aac-468c-4a81-9f7d-41d7bd7ce951",
+      "status": "complete",
+      "started_at": 1791930147637,
+      "finished_at": 1791930149545,
+      "exit_code": 0,
+      "commit": "bec1c5d26dbd82fc09c80df83be5b6b4e9ab9641"
+    },
+    {
+      "id": "a1000005-0000-4000-8000-000000000005",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "status": "complete",
+      "started_at": 1791930140080,
+      "finished_at": 1791930140638,
+      "exit_code": 0,
+      "commit": "cae6e63994159a523f700aa2d8c1f742312b0c06"
+    },
+    {
+      "id": "eae98691-c80d-428e-aa23-84cf47ed9d93",
+      "run_id": "d1f64aac-468c-4a81-9f7d-41d7bd7ce951",
+      "status": "complete",
+      "started_at": 1791930117441,
+      "finished_at": 1791930118725,
+      "exit_code": 0,
+      "commit": "2a49e044bc3ab15f3e5795364b90d7a156a0932f"
+    },
+    {
+      "id": "a1000004-0000-4000-8000-000000000004",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "status": "complete",
+      "started_at": 1791930116985,
+      "finished_at": 1791930117514,
+      "exit_code": 0,
+      "commit": "3cfebf9f564c5dd12929720f6459b4bc351309b0"
+    },
+    {
+      "id": "a1000003-0000-4000-8000-000000000003",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "status": "complete",
+      "started_at": 1791930108329,
+      "finished_at": 1791930108807,
+      "exit_code": 0,
+      "commit": "a077c64b14a49bc6963b2e41c792e36f75ce7f9f"
+    },
+    {
+      "id": "a1000002-0000-4000-8000-000000000002",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "status": "complete",
+      "started_at": 1791930101060,
+      "finished_at": 1791930101535,
+      "exit_code": 0,
+      "commit": "bcedf08ecc143a281f9235fffa2094ca68628889"
+    },
+    {
+      "id": "f8785a74-9ba0-4f8a-834d-3cb8d8ba9ec6",
+      "run_id": "d1f64aac-468c-4a81-9f7d-41d7bd7ce951",
+      "status": "complete",
+      "started_at": 1791930086431,
+      "finished_at": 1791930105842,
+      "exit_code": 0,
+      "commit": "fe921eceaf5130bf84c2d2cb4393ccc94ba7eaf4"
+    },
+    {
+      "id": "a1000001-0000-4000-8000-000000000001",
+      "run_id": "5b1f6a2e-3c4d-4e8f-9a01-7c2b3d4e5f60",
+      "status": "complete",
+      "started_at": 1791930073707,
+      "finished_at": 1791930093922,
+      "exit_code": 0,
+      "commit": "8814f990589489370ddaedeffe527304363258e4"
+    }
+  ],
+  "project_read_observation": {
+    "observed_at": "2026-10-13T22:25:55.043Z",
+    "response_bytes": 127674,
+    "jobs": 19,
+    "failed_jobs": 4,
+    "candidates": 1,
+    "source_output_bytes": 57741,
+    "integrations": [],
+    "commands": [
+      {
+        "status": "running",
+        "command_bytes": 333,
+        "output_bytes": 0
+      },
+      {
+        "status": "failed",
+        "command_bytes": 702,
+        "output_bytes": 0,
+        "exit_code": 63
+      },
+      {
+        "status": "complete",
+        "command_bytes": 3932,
+        "output_bytes": 93,
+        "exit_code": 0
+      },
+      {
+        "status": "failed",
+        "command_bytes": 145,
+        "output_bytes": 0,
+        "exit_code": 5
+      },
+      {
+        "status": "failed",
+        "command_bytes": 466,
+        "output_bytes": 0,
+        "exit_code": 255
+      },
+      {
+        "status": "running",
+        "command_bytes": 90,
+        "output_bytes": 0
+      },
+      {
+        "status": "complete",
+        "command_bytes": 2975,
+        "output_bytes": 2970,
+        "exit_code": 0
+      },
+      {
+        "status": "failed",
+        "command_bytes": 380,
+        "output_bytes": 0,
+        "exit_code": 255
+      },
+      {
+        "status": "complete",
+        "command_bytes": 3062,
+        "output_bytes": 32,
+        "exit_code": 0
+      },
+      {
+        "status": "complete",
+        "command_bytes": 66,
+        "output_bytes": 0,
+        "exit_code": 0
+      },
+      {
+        "status": "complete",
+        "command_bytes": 8,
+        "output_bytes": 4,
+        "exit_code": 0
+      },
+      {
+        "status": "complete",
+        "command_bytes": 2880,
+        "output_bytes": 45,
+        "exit_code": 0
+      },
+      {
+        "status": "complete",
+        "command_bytes": 8,
+        "output_bytes": 4,
+        "exit_code": 0
+      },
+      {
+        "status": "complete",
+        "command_bytes": 276,
+        "output_bytes": 12481,
+        "exit_code": 0
+      },
+      {
+        "status": "complete",
+        "command_bytes": 328,
+        "output_bytes": 9118,
+        "exit_code": 0
+      },
+      {
+        "status": "complete",
+        "command_bytes": 353,
+        "output_bytes": 600,
+        "exit_code": 0
+      },
+      {
+        "status": "complete",
+        "command_bytes": 379,
+        "output_bytes": 3287,
+        "exit_code": 0
+      },
+      {
+        "status": "complete",
+        "command_bytes": 190,
+        "output_bytes": 19853,
+        "exit_code": 0
+      },
+      {
+        "status": "complete",
+        "command_bytes": 114,
+        "output_bytes": 9254,
+        "exit_code": 0
+      }
+    ]
+  },
+  "limitations": [
+    "Documentation work on the actual Await source, not a runtime-feature demonstration.",
+    "No human approval or canonical publication has occurred in this run.",
+    "Combined duration includes startup, checkout, dependency installation, tests and build.",
+    "The source snapshot predates the subsequently reviewed branch-metadata and terminal-output fixes.",
+    "Several nonzero command exits were deliberate diagnostic probes."
+  ]
+}

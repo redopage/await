@@ -1,0 +1,36 @@
+.inline-message-editor { position: relative; margin: 7px 0; border: 1px solid #a6bfa9; border-radius: 10px; cursor: default; }
+.inline-message-editor .composer-formatting-row { min-height: 35px; padding: 4px 8px; border-bottom: 1px solid #e5ede6; }
+.inline-edit-content { padding: 12px; max-height: 420px; overflow: auto; }
+.inline-edit-content .ProseMirror { min-height: 45px; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.62; }
+.inline-edit-content p { margin: 0 0 8px; }
+.inline-edit-content p:last-child { margin-bottom: 0; }
+/* Rich content looks the same in the composer and the inline editor, and close to the posted message. */
+:is(.inline-edit-content, .composer-edit-area) pre { margin: 4px 0; white-space: pre-wrap; padding: 10px; border-radius: 6px; }
+:is(.inline-edit-content, .composer-edit-area) code { padding: 1px 4px; border-radius: 4px; font-family: ui-monospace, monospace; font-size: .9em; }
+:is(.inline-edit-content, .composer-edit-area) pre code { padding: 0; }
+:is(.inline-edit-content, .composer-edit-area) blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid #a6bfa9; }
+:is(.inline-edit-content, .composer-edit-area) img { max-width: 100%; max-height: 220px; object-fit: contain; }
+.composer-edit-area img { max-height: 140px; border-radius: 8px; }
+:is(.inline-edit-content, .composer-edit-area) table { border-collapse: collapse; }
+:is(.inline-edit-content, .composer-edit-area) td { padding: 4px 8px; border: 1px solid #dce7dd; }
+:is(.inline-edit-content, .composer-edit-area) li[data-checked="true"]::marker { content: '☑ '; }
+:is(.inline-edit-content, .composer-edit-area) li[data-checked="false"]::marker { content: '☐ '; }
+:is(.inline-edit-content, .composer-edit-area) .ProseMirror-selectednode { outline: 2px solid var(--accent-focus); }
+.inline-edit-content .composer-chip { user-select: all; max-width: 100%; white-space: normal; }
+.inline-edit-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border-top: 1px solid #e5ede6; }
+.inline-edit-footer > span { font-size: 11px; }
+.inline-edit-footer > div { display: flex; gap: 6px; margin-left: auto; }
+.inline-edit-suggestions { position: relative; max-height: 180px; overflow: auto; margin: 0 10px 8px; padding: 4px; border: 1px solid #dce7dd; border-radius: 6px; }
+.inline-edit-suggestions button { display: block; width: 100%; padding: 6px 8px; text-align: left; border: 0; border-radius: 4px; background: transparent; }
+.inline-edit-suggestions p { margin: 4px; font-size: 12px; }
+.message-editing .message-actions { display: none; }
+@media (max-width: 600px) { .inline-edit-footer > span { width: 100%; } .inline-edit-content { padding: 10px; } }
+:is(.inline-edit-content, .composer-edit-area) ul { list-style: disc; margin: 8px 0; padding-left: 22px; }
+:is(.inline-edit-content, .composer-edit-area) ol { list-style: decimal; margin: 8px 0; padding-left: 22px; }
+:is(.inline-edit-content, .composer-edit-area) a { text-decoration: underline; }
+:is(.inline-edit-content, .composer-edit-area) :is(h1, h2, h3) { margin: 10px 0 6px; }
+:is(.inline-edit-content, .composer-edit-area) h1 { font-size: 24px; }
+:is(.inline-edit-content, .composer-edit-area) h2 { font-size: 20px; }
+:is(.inline-edit-content, .composer-edit-area) h3 { font-size: 17px; }
+
+.message-edit-return-focus .message-actions { display: flex; }

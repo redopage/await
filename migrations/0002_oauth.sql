@@ -1,0 +1,2 @@
+ALTER TABLE oauth_states ADD COLUMN return_to TEXT;
+ALTER TABLE accounts ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0;

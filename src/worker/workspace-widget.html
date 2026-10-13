@@ -1,0 +1,1316 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Await</title>
+  <style>
+    :root { color-scheme: light dark; font: 14px/1.45 var(--font-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); --bg:#fff; --side:#f7f7f8; --surface:#fff; --hover:#eeeef0; --selected:#e9e9ec; --text:#222329; --muted:#777982; --line:#e9e9ec; --accent:#565b72; --tint:#587d69; --chip:#f1f1f3; --danger:#aa4448; --host-bottom-inset:0px; }
+    :root[data-theme="light"] { color-scheme:light; }
+    :root[data-theme="dark"] { color-scheme:dark; --bg:#0f0f10; --side:#1a1b1e; --surface:#26272b; --hover:#303137; --selected:#373941; --text:#f0f0f2; --muted:#aaaab2; --line:#36373d; --accent:#bbc0dc; --tint:#a0c4ad; --chip:#33343a; --danger:#ef9a9f; }
+    @media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { color-scheme:dark; --bg:#0f0f10; --side:#1a1b1e; --surface:#26272b; --hover:#303137; --selected:#373941; --text:#f0f0f2; --muted:#aaaab2; --line:#36373d; --accent:#bbc0dc; --tint:#a0c4ad; --chip:#33343a; --danger:#ef9a9f; } }
+    :root[data-host-styles] { --bg:var(--color-background-primary, light-dark(#fff,#0f0f10)); --side:var(--color-background-secondary, light-dark(#f7f7f8,#1a1b1e)); --surface:var(--color-background-secondary, light-dark(#fff,#26272b)); --hover:var(--color-background-tertiary, light-dark(#eeeef0,#303137)); --selected:var(--color-background-tertiary, light-dark(#e9e9ec,#373941)); --text:var(--color-text-primary, light-dark(#222329,#f0f0f2)); --muted:var(--color-text-secondary, light-dark(#777982,#aaaab2)); --line:var(--color-border-primary, light-dark(#e9e9ec,#36373d)); --accent:var(--color-text-primary, light-dark(#565b72,#bbc0dc)); --chip:var(--color-background-tertiary, light-dark(#f1f1f3,#33343a)); --danger:var(--color-text-danger, light-dark(#aa4448,#ef9a9f)); }
+    * { box-sizing:border-box; }
+    html,body { width:100%; height:100%; margin:0; }
+    body { background:var(--bg); color:var(--text); }
+    button,input,textarea,select { font:inherit; }
+    button { cursor:pointer; }
+    button:disabled { cursor:wait; opacity:.55; }
+    :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+    .shell { position:relative; display:grid; grid-template-columns:minmax(0,1fr); width:100%; height:calc(100dvh - max(var(--host-bottom-inset),env(safe-area-inset-bottom))); min-height:0; overflow:hidden; isolation:isolate; }
+    .nav-scrim { position:absolute; z-index:6; inset:0; background:color-mix(in srgb,var(--bg) 54%,transparent); }
+    .nav-scrim[hidden] { display:none; }
+    .compose-scrim { display:none; }
+    .sidebar { position:absolute; z-index:7; top:70px; right:14px; display:flex; flex-direction:column; width:min(312px,calc(100% - 28px)); height:auto; max-height:min(570px,calc(100% - 154px)); min-width:0; min-height:0; overflow:hidden; border:1px solid color-mix(in srgb,var(--text) 10%,var(--line)); border-radius:18px; background:var(--side); box-shadow:0 18px 46px #0002,0 2px 9px #0001; opacity:0; visibility:hidden; pointer-events:none; transform:translateX(16px) scale(.985); transition:transform .18s ease,opacity .18s ease,visibility .18s; }
+    .shell.show-sidebar .sidebar { opacity:1; visibility:visible; pointer-events:auto; transform:translateX(0) scale(1); }
+    :root[data-theme="dark"] .sidebar { box-shadow:none; }
+    .sidebar-search { display:flex; align-items:center; gap:8px; margin:12px; padding:9px 10px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--muted); }
+    .sidebar-search svg { width:16px; height:16px; flex:none; }
+    .sidebar-search input { width:100%; min-width:0; border:0; outline:0; background:transparent; color:var(--text); }
+    .sidebar-search input::placeholder { color:var(--muted); }
+    .sidebar-search kbd { flex:none; border:1px solid var(--line); border-radius:4px; padding:0 3px; color:var(--muted); font-size:11px; }
+    .side-scroll { flex:0 1 auto; min-height:0; overflow:auto; padding:0 8px 12px; }
+    .browse-empty { padding:18px 10px 20px; color:var(--muted); font-size:13px; text-align:center; }
+    .side-empty { padding:7px 9px; color:var(--muted); font-size:12px; }
+    .browse-empty[hidden] { display:none; }
+    .browse-create { display:flex; align-items:center; gap:8px; width:calc(100% - 24px); min-height:36px; margin:0 12px 12px; border:1px solid var(--line); border-radius:9px; padding:7px 10px; background:var(--surface); color:var(--text); text-align:left; font-size:12px; }
+    .browse-create:hover { border-color:var(--tint); background:var(--hover); }
+    .browse-create[hidden] { display:none; }
+    .browse-create span:first-child { color:var(--tint); font-size:17px; line-height:1; }
+    .browse-create span:last-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sidebar-destinations { display:grid; gap:2px; margin:0 12px 10px; border-top:1px solid var(--line); padding-top:9px; }
+    .sidebar-destinations button { display:flex; align-items:center; gap:10px; width:100%; min-height:36px; border:0; border-radius:8px; padding:7px 9px; background:transparent; color:var(--text); text-align:left; font-size:13px; }
+    .sidebar-destinations button:hover { background:var(--hover); }
+    .sidebar-destinations svg { width:16px; height:16px; flex:none; color:var(--muted); }
+    .sidebar-destinations .ask-button { display:none; align-items:center; justify-content:flex-start; gap:10px; width:100%; min-height:36px; border:0; border-radius:8px; padding:7px 9px; background:transparent; color:var(--text); text-align:left; font-size:13px; font-weight:400; }
+    .sidebar-destinations .ask-button.available { display:flex; }
+    .sidebar-destinations .ask-button:hover { background:var(--hover); }
+    .sidebar-destinations .ask-button svg { color:var(--muted); }
+    .message-search-launch { display:flex; align-items:center; gap:9px; width:calc(100% - 24px); margin:0 12px 12px; border:1px solid var(--line); border-radius:9px; padding:9px 10px; background:var(--surface); color:var(--text); text-align:left; font-size:12px; }
+    .message-search-launch:hover { background:var(--hover); border-color:var(--tint); }
+    .message-search-launch[hidden] { display:none; }
+    .message-search-launch svg { width:16px; height:16px; flex:none; color:var(--muted); }
+    .message-search-launch span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .group-head { display:flex; align-items:center; justify-content:space-between; margin:15px 8px 5px; color:var(--muted); font-size:12px; font-weight:650; }
+    .sidebar.search-empty .group-head { display:none; }
+    .group-head button { display:grid; place-items:center; width:28px; height:28px; border:0; border-radius:7px; background:transparent; color:var(--muted); font-size:18px; line-height:1; }
+    .group-head button[hidden] { display:none; }
+    .group-head button:hover,.side-item:hover { background:var(--hover); }
+    .side-list { display:grid; gap:2px; }
+    .side-item { display:flex; align-items:center; gap:8px; width:100%; min-height:36px; border:0; border-radius:8px; padding:7px 9px; background:transparent; color:var(--text); text-align:left; }
+    .side-item[aria-current="page"] { background:var(--selected); box-shadow:inset 2px 0 var(--tint); }
+    .side-item .prefix { display:grid; place-items:center; width:18px; flex:none; color:var(--muted); font-size:16px; line-height:1; }
+    .side-item .prefix svg { width:16px; height:16px; }
+    .side-item .label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .count { min-width:18px; border-radius:9px; padding:1px 4px; background:var(--chip); color:var(--muted); text-align:center; font-size:11px; }
+    .count.mention { background:#dde6f4; color:#3b5277; }
+    :root[data-theme="dark"] .count.mention { background:#344663; color:#dce7ff; }
+    .main { position:relative; display:flex; flex-direction:column; min-width:0; min-height:0; }
+    .conversation-head { display:flex; align-items:center; gap:9px; min-height:59px; padding:9px 18px; border-bottom:1px solid var(--line); }
+    .conversation-title { flex:1; min-width:0; }
+    .conversation-title strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px; letter-spacing:-.02em; }
+    .conversation-title small { display:none; }
+    .host-toast { position:absolute; z-index:4; top:68px; right:18px; max-width:min(340px,calc(100% - 36px)); margin:0; border:1px solid var(--line); border-radius:10px; padding:9px 12px; background:var(--surface); color:var(--text); box-shadow:0 9px 28px #0002; font-size:12px; font-weight:600; }
+    .host-toast[hidden] { display:none; }
+    .icon-button { display:grid; place-items:center; flex:none; width:32px; height:32px; border:0; border-radius:8px; background:transparent; color:var(--muted); }
+    .icon-button[hidden] { display:none; }
+    .icon-button:hover { background:var(--hover); color:var(--text); }
+    .icon-button[aria-pressed="true"] { background:var(--selected); color:var(--text); }
+    .icon-button svg { width:17px; height:17px; }
+    #details { font-size:21px; line-height:1; }
+    #refresh { display:none; width:auto; gap:6px; border:1px solid color-mix(in srgb,var(--danger) 28%,var(--line)); padding:0 8px; color:var(--danger); font-size:11px; font-weight:650; }
+    .shell[data-live="disconnected"] #refresh { display:flex; }
+    .browse-button { display:flex; align-items:center; justify-content:center; gap:7px; flex:none; min-height:34px; border:1px solid var(--line); border-radius:9px; padding:0 10px; background:var(--side); color:var(--text); font-size:12px; font-weight:600; }
+    .browse-button:hover,.browse-button[aria-expanded="true"] { background:var(--hover); }
+    .browse-button .browse-mark { display:none; place-items:center; width:16px; height:16px; color:var(--muted); }
+    .browse-button .browse-mark svg { width:16px; height:16px; }
+    .browse-count { display:grid; place-items:center; min-width:18px; height:18px; border-radius:9px; padding:0 5px; background:var(--text); color:var(--bg); font-size:10px; font-weight:700; line-height:1; }
+    .browse-count.mention { background:var(--tint); color:var(--bg); }
+    .browse-count[hidden] { display:none; }
+    .start-dm-empty { display:flex; align-items:center; gap:8px; width:100%; min-height:36px; border:0; border-radius:8px; padding:7px 9px; background:transparent; color:var(--muted); text-align:left; font-size:12px; }
+    .start-dm-empty:hover { background:var(--hover); color:var(--text); }
+    .start-dm-empty span { display:grid; place-items:center; width:18px; font-size:17px; line-height:1; }
+    .ask-button { display:none; align-items:center; justify-content:center; gap:5px; flex:none; min-height:34px; border:1px solid var(--line); border-radius:9px; padding:0 9px; background:var(--surface); color:var(--text); font-size:12px; font-weight:600; }
+    .ask-button.available { display:flex; }
+    .ask-button:hover { background:var(--hover); }
+    .ask-button svg { width:15px; height:15px; color:var(--tint); }
+    .message-scroll { display:flex; flex:1; flex-direction:column; min-height:0; overflow:auto; padding:20px max(20px,calc((100% - 880px)/2)) 20px; }
+    .message-scroll > * { flex:none; }
+    .message-scroll > .message:first-child,.message-scroll > .day-divider:first-child { margin-top:0; }
+    .message-scroll > .welcome { margin:0; }
+    .day-divider { display:flex; align-items:center; gap:11px; margin:15px 6px 6px; color:var(--muted); font-size:11px; white-space:nowrap; }
+    .day-divider::before,.day-divider::after { content:""; flex:1; border-top:1px solid var(--line); }
+    .welcome { padding:24px 8px 28px; }
+    .welcome-mark { display:grid; place-items:center; width:38px; height:38px; margin-bottom:13px; border-radius:11px; background:color-mix(in srgb,var(--tint) 18%,var(--surface)); color:var(--tint); font-size:19px; }
+    .welcome h1 { margin:0 0 5px; font-size:20px; letter-spacing:-.035em; }
+    .welcome p { max-width:390px; margin:0; color:var(--muted); font-size:13px; line-height:1.55; }
+    .welcome-action { display:inline-flex; align-items:center; gap:7px; min-height:34px; margin-top:17px; border:1px solid var(--line); border-radius:9px; padding:0 11px; background:var(--surface); color:var(--text); font-size:12px; font-weight:650; }
+    .welcome-action:hover { border-color:var(--tint); background:var(--hover); }
+    .welcome-action span { color:var(--tint); font-size:17px; font-weight:400; line-height:1; }
+    .message { position:relative; display:grid; grid-template-columns:36px minmax(0,1fr); gap:11px; padding:11px 6px; border-radius:9px; }
+    .message:hover { background:var(--hover); }
+    .message.compact { padding-top:2px; padding-bottom:2px; }
+    .message.compact .small-avatar { visibility:hidden; }
+    .message.compact .message-meta { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+    .message.compact .message-body { margin-top:0; }
+    .small-avatar { display:grid; place-items:center; width:34px; height:34px; flex:none; border-radius:50%; background:#dce8df; color:#385d49; font-size:11px; font-weight:700; letter-spacing:-.02em; }
+    .small-avatar.agent { border-radius:10px; background:#e8e3f2; color:#665579; }
+    :root[data-theme="dark"] .small-avatar { background:#34463b; color:#dcece0; }
+    :root[data-theme="dark"] .small-avatar.agent { background:#51465f; color:#efe2ff; }
+    .message-main { min-width:0; }
+    .message-meta { display:flex; align-items:baseline; gap:7px; min-width:0; }
+    .message-meta strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
+    .message-meta time { flex:none; color:var(--muted); font-size:12px; }
+    .delivery-label { color:var(--muted); font-size:11px; }
+    .agent-tag { border-radius:4px; padding:1px 4px; background:var(--chip); color:var(--muted); font-size:10px; }
+    .message-body { margin:3px 0 0; overflow-wrap:anywhere; white-space:pre-wrap; font-size:15px; line-height:1.5; }
+    .message-gif { display:block; width:min(320px,100%); aspect-ratio:16/9; margin:7px 0 3px; border-radius:9px; background:var(--side); object-fit:contain; }
+    .gif-credit { display:inline-block; margin-top:2px; color:var(--muted); font-size:11px; text-decoration:none; }
+    .gif-credit:hover { text-decoration:underline; }
+    .message-body strong { font-weight:700; }
+    .message-body code { border-radius:4px; padding:1px 4px; background:var(--chip); font-size:.9em; }
+    .shared-work-card { display:flex; align-items:center; gap:9px; width:min(340px,100%); margin-top:5px; border:1px solid var(--line); border-radius:9px; padding:9px 11px; background:var(--surface); color:var(--text); text-align:left; }
+    .shared-work-card:hover { background:var(--hover); }
+    .shared-work-card .shared-work-icon { display:grid; place-items:center; width:28px; height:28px; flex:none; border-radius:7px; background:var(--chip); color:var(--muted); }
+    .shared-work-icon svg,.work-item-icon svg,.file-picker-icon svg { width:17px; height:17px; }
+    .shared-work-card .shared-work-copy { display:grid; min-width:0; gap:1px; }
+    .shared-work-card strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+    .shared-work-card small { color:var(--muted); font-size:11px; }
+    .message-mention,.message-channel { border-radius:5px; padding:1px 3px; background:var(--chip); color:var(--text); font-weight:650; }
+    .message-channel { border:0; cursor:pointer; }
+    .message-channel:hover { background:var(--hover); text-decoration:underline; }
+.message-task { border:1px solid var(--line,#d9e1dc); border-radius:999px; padding:0 8px; font-weight:600; }
+.message-task.status-done { text-decoration:line-through; opacity:.8; }
+.message-task.status-blocked { border-color:#d6a84a; }
+.message-task.status-review { border-color:#8a7bd8; }
+    .message-attachment { display:inline-flex; margin:7px 5px 0 0; border:1px solid var(--line); border-radius:6px; padding:4px 7px; background:var(--surface); color:var(--muted); font-size:11px; }
+    .message-actions { position:absolute; z-index:1; top:4px; right:6px; display:flex; gap:2px; border:1px solid var(--line); border-radius:8px; padding:2px; background:var(--surface); box-shadow:0 3px 10px #0001; }
+    .message-actions button { min-height:25px; border:0; border-radius:5px; padding:2px 7px; background:transparent; color:var(--accent); font-size:11px; font-weight:650; }
+    .message-actions button:hover { background:var(--hover); color:var(--text); }
+    .message-actions button.danger { color:var(--danger); }
+    .message-actions .action-icon { display:none; }
+    @media (hover:hover) { .message .message-actions { opacity:0; pointer-events:none; } .message:hover .message-actions,.message:focus-within .message-actions { opacity:1; pointer-events:auto; } }
+    @media (hover:none) { .message-actions { position:static; width:max-content; margin-top:6px; } }
+    .reactions { display:flex; gap:4px; margin-top:5px; }
+    .reaction { border:1px solid var(--line); border-radius:8px; padding:2px 6px; background:var(--surface); color:var(--text); font-size:11px; }
+    .reaction:hover { background:var(--hover); }
+    .reaction-picker { display:flex; flex-wrap:wrap; gap:3px; width:max-content; max-width:100%; margin-top:6px; border:1px solid var(--line); border-radius:9px; padding:4px; background:var(--surface); box-shadow:0 3px 10px #0001; }
+    .reaction-picker[hidden] { display:none; }
+    .reaction-picker button { display:grid; place-items:center; width:33px; height:33px; border:0; border-radius:6px; background:transparent; font-size:20px; }
+    .reaction-picker button:hover,.reaction-picker button:focus-visible { background:var(--hover); }
+    .empty { display:grid; place-items:center; min-height:160px; margin:auto; padding:24px; color:var(--muted); text-align:center; }
+    .new-messages { position:absolute; z-index:3; top:70px; right:24px; display:flex; align-items:center; gap:8px; min-height:34px; border:1px solid var(--line); border-radius:999px; padding:0 12px; background:var(--surface); color:var(--text); box-shadow:0 5px 18px #0002; font-size:12px; font-weight:650; }
+    .new-messages:hover { border-color:var(--tint); background:var(--hover); }
+    .new-messages[hidden] { display:none; }
+    .new-messages span:first-child { color:var(--tint); font-size:16px; line-height:1; }
+    .composer-wrap { position:relative; flex:none; padding:0 18px 16px; }
+    .compose-launch,.compose-close { display:none; }
+    .composer { max-width:920px; margin:auto; overflow:hidden; border:1px solid color-mix(in srgb,var(--text) 19%,var(--surface)); border-radius:16px; background:var(--surface); }
+    .composer { box-shadow:0 8px 24px #0001; }
+    :root[data-theme="dark"] .composer { box-shadow:none; }
+    .composer:focus-within { border-color:var(--tint); box-shadow:0 0 0 2px color-mix(in srgb,var(--tint) 16%,transparent); }
+    .formatting-row { display:flex; align-items:center; gap:2px; min-height:40px; padding:5px 11px; border-bottom:1px solid var(--line); background:var(--side); }
+    .formatting-row[hidden] { display:none; }
+    .formatting-row button { display:grid; place-items:center; min-width:29px; height:29px; border:0; border-radius:6px; background:transparent; color:var(--muted); }
+    .formatting-row button:hover { background:var(--hover); color:var(--text); }
+    .formatting-row .format-code { min-width:39px; font:600 11px ui-monospace,SFMono-Regular,monospace; }
+    .format-divider { width:1px; height:17px; margin:0 5px; background:var(--line); }
+    .draft-edit-area { position:relative; min-height:66px; max-height:210px; overflow-y:auto; padding:15px 17px 8px; }
+    .draft-edit-area .ProseMirror { min-height:43px; outline:0; color:var(--text); font-size:15px; line-height:1.5; overflow-wrap:anywhere; white-space:pre-wrap; }
+    .draft-edit-area .ProseMirror p { margin:0 0 3px; }
+    .draft-edit-area .ProseMirror code { border-radius:4px; padding:1px 4px; background:var(--chip); font-size:.9em; }
+    .draft-placeholder { position:absolute; top:15px; left:17px; color:var(--muted); font-size:15px; pointer-events:none; }
+    .draft-placeholder[hidden] { display:none; }
+    .composer-chip { display:inline-flex; align-items:center; max-width:240px; border-radius:5px; margin:0 1px; padding:0 5px; background:color-mix(in srgb,var(--tint) 17%,var(--surface)); color:var(--text); font-size:.94em; font-weight:650; white-space:nowrap; vertical-align:baseline; }
+    .compose-actions { display:flex; align-items:center; gap:4px; min-height:49px; padding:2px 10px 10px 11px; }
+    .compose-actions .spacer { flex:1; }
+    .compose-actions .compose-close { display:none; }
+    .composer-tool { display:grid; place-items:center; flex:none; width:34px; height:34px; border:0; border-radius:9px; background:transparent; color:var(--muted); font-size:16px; }
+    .composer-tool:hover,.composer-tool[aria-expanded="true"] { background:var(--hover); color:var(--text); }
+    .composer-tool svg { width:19px; height:19px; }
+    .add-tool { margin-right:2px; border-radius:50%; background:transparent; color:var(--muted); }
+    .format-toggle { width:37px; font-size:17px; font-weight:600; letter-spacing:-.075em; }
+    .composer-hint { display:none; }
+    .send { display:grid; place-items:center; width:34px; height:34px; border:0; border-radius:50%; padding:0; background:var(--text); color:var(--bg); line-height:1; }
+    .send svg { width:20px; height:20px; }
+    .send:hover { opacity:.84; }
+    .send:disabled { opacity:.4; cursor:default; }
+    .status { min-height:18px; max-width:920px; margin:4px auto 0; color:var(--muted); font-size:11px; }
+    .status:empty { display:none; }
+    .status.error { color:var(--danger); }
+    .popover { position:absolute; z-index:4; bottom:100%; left:max(18px,calc((100% - 920px)/2 + 14px)); width:min(300px,calc(100vw - 38px)); max-height:230px; overflow:auto; border:1px solid var(--line); border-radius:11px; padding:6px; background:var(--surface); box-shadow:0 14px 34px #0002; }
+    :root[data-theme="dark"] .popover { box-shadow:none; }
+    .popover[hidden],.right-panel[hidden],.modal[hidden] { display:none; }
+    .popover button { display:block; width:100%; border:0; border-radius:6px; padding:7px 8px; background:transparent; color:var(--text); text-align:left; }
+    .popover button:hover,.popover button[aria-selected="true"] { background:var(--hover); }
+    .mention-option { display:flex!important; align-items:center; gap:9px; }
+    .mention-option .small-avatar { width:26px; height:26px; border-radius:7px; }
+    .mention-option .mention-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .mention-option .agent-tag { flex:none; }
+    .emoji-popover { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:3px; width:278px; }
+    .emoji-popover button { display:grid; place-items:center; min-height:38px; padding:0; text-align:center; font-size:22px; }
+    .add-popover { width:260px; }
+    .add-popover button { display:flex; align-items:center; gap:11px; min-height:40px; font-size:13px; }
+    .add-popover .menu-icon { display:grid; place-items:center; flex:none; width:20px; height:20px; color:var(--muted); }
+    .add-popover .menu-icon svg { width:19px; height:19px; }
+    .picker-popover { width:min(380px,calc(100vw - 38px)); max-height:350px; }
+    .picker-head { display:flex; align-items:center; justify-content:space-between; padding:5px 7px 9px; font-weight:650; }
+    .picker-head button { width:auto; padding:2px 6px; }
+    .picker-search { width:100%; margin-bottom:8px; border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--bg); color:var(--text); font-size:13px; }
+    .picker-list { display:grid; gap:2px; }
+    .picker-list button { display:flex; align-items:center; gap:8px; }
+    .picker-list button span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .picker-list .file-picker-icon { display:grid; place-items:center; flex:none; width:27px; height:27px; border-radius:7px; background:var(--chip); color:var(--muted); }
+    .picker-list small { display:block; color:var(--muted); }
+    .gif-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+    .gif-grid button { display:block; overflow:hidden; height:88px; padding:0; }
+    .gif-grid img { width:100%; height:100%; object-fit:cover; }
+    .picker-credit { margin:8px 5px 3px; color:var(--muted); font-size:11px; }
+    .queued { display:flex; align-items:center; gap:9px; width:min(270px,calc(100% - 24px)); min-height:62px; margin:0 12px 5px; border:1px solid var(--line); border-radius:10px; padding:6px; background:var(--side); }
+    .queued[hidden] { display:none; }
+    .queued-preview { display:grid; place-items:center; flex:none; width:46px; height:46px; overflow:hidden; border-radius:7px; background:var(--hover); color:var(--text); font-size:12px; font-weight:650; }
+    .queued-preview img { width:100%; height:100%; object-fit:cover; }
+    .queued-copy { display:grid; flex:1; min-width:0; gap:2px; }
+    .queued-copy strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:650; }
+    .queued-copy small { color:var(--muted); font-size:11px; }
+    .queued button { display:grid; place-items:center; flex:none; width:24px; height:24px; border:0; border-radius:6px; background:transparent; color:var(--muted); }
+    .queued button:hover { background:var(--hover); color:var(--text); }
+    .message-file { display:flex; align-items:center; gap:9px; width:min(275px,100%); min-height:62px; margin-top:8px; border:1px solid var(--line); border-radius:10px; padding:6px; background:var(--side); color:var(--text); text-align:left; text-decoration:none; cursor:pointer; }
+    .message-file:hover { border-color:var(--tint); background:var(--hover); }
+    .message-file[aria-busy="true"] { opacity:.65; pointer-events:none; }
+    .message-file-open { flex:none; margin-left:auto; padding-right:3px; color:var(--muted); font-size:14px; }
+    .message-file-preview { display:grid; place-items:center; flex:none; width:46px; height:46px; overflow:hidden; border-radius:7px; background:var(--hover); color:var(--muted); font-size:11px; font-weight:650; }
+    .message-file-preview img { width:100%; height:100%; object-fit:cover; }
+    .message-file-copy { display:grid; min-width:0; gap:2px; }
+    .message-file-copy strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:600; }
+    .message-file-copy small { color:var(--muted); font-size:11px; }
+    .right-panel { display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden; margin:0; border:0; border-left:1px solid var(--line); background:var(--side); }
+    .shell.has-panel { grid-template-columns:minmax(0,1fr) minmax(300px,min(34%,420px)); }
+    @media (min-width:901px) { .shell.has-panel .sidebar { right:calc(min(34%,420px) + 14px); } }
+    .panel-head { display:flex; align-items:center; gap:8px; min-height:59px; border-bottom:1px solid var(--line); padding:9px 14px; }
+    .panel-head strong { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .panel-status { margin:0; border-bottom:1px solid var(--line); padding:8px 14px; background:var(--surface); color:var(--tint); font-size:13px; }
+    .panel-status:empty,.modal-status:empty { display:none; }
+    .panel-status.error,.modal-status.error { color:var(--danger); }
+    .panel-back { display:grid; place-items:center; width:30px; height:30px; flex:none; border:0; border-radius:8px; background:transparent; color:var(--muted); font-size:20px; }
+    .panel-back:hover { background:var(--hover); color:var(--text); }
+    .panel-back[hidden],.panel-create[hidden] { display:none; }
+    .panel-create { flex:none; border:1px solid var(--line); border-radius:8px; padding:6px 9px; background:var(--surface); color:var(--text); font-size:12px; font-weight:650; }
+    .panel-create:hover { background:var(--hover); }
+    .panel-content { flex:1; overflow:auto; padding:16px; }
+    .message-search-field { width:100%; border:1px solid var(--line); border-radius:9px; padding:10px 12px; background:var(--surface); color:var(--text); outline:none; }
+    .message-search-field:focus { border-color:var(--tint); box-shadow:0 0 0 2px color-mix(in srgb,var(--tint) 15%,transparent); }
+    .message-search-summary { margin:14px 2px 9px; color:var(--muted); font-size:12px; }
+    .message-search-result { display:grid; gap:5px; width:100%; margin:0 0 7px; border:1px solid var(--line); border-radius:10px; padding:11px 12px; background:var(--surface); color:var(--text); text-align:left; }
+    .message-search-result:hover { border-color:var(--tint); background:var(--hover); }
+    .message-search-result strong { font-size:12px; }
+    .message-search-result span { display:-webkit-box; overflow:hidden; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow-wrap:anywhere; font-size:13px; line-height:1.45; }
+    .message-search-result mark { border-radius:3px; padding:0 2px; background:color-mix(in srgb,var(--tint) 28%,var(--surface)); color:var(--text); }
+    .message-search-result small { color:var(--muted); font-size:11px; }
+    .panel-content .message { padding:9px 3px; }
+    .panel-content .message.search-hit { border-radius:9px; background:color-mix(in srgb,var(--tint) 11%,transparent); }
+    .panel-content .thread-root { margin-bottom:10px; border:1px solid var(--line); border-radius:11px; padding:12px; background:var(--surface); }
+    .thread-reply-count { margin:14px 4px 5px; color:var(--muted); font-size:12px; font-weight:650; }
+    .thread-empty { margin:18px 4px; color:var(--muted); font-size:13px; }
+    .work-group { margin:0 0 22px; }
+    .work-group-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:4px 2px 9px; }
+    .work-group-head h3 { margin:0; font-size:13px; font-weight:700; }
+    .work-empty { border:1px dashed var(--line); border-radius:11px; padding:19px 14px; color:var(--muted); font-size:12px; line-height:1.5; }
+    .work-empty-action { display:grid; gap:3px; width:100%; text-align:left; background:var(--surface); }
+    .work-empty-action:hover { border-color:var(--tint); background:var(--hover); }
+    .work-empty-action strong { color:var(--text); font-size:13px; font-weight:650; }
+    .work-empty-action span { color:var(--muted); font-size:12px; }
+    .work-detail-copy { margin:0 2px 14px; color:var(--muted); font-size:13px; }
+    .work-actions { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 16px; }
+    .work-actions button { border:1px solid var(--line); border-radius:8px; padding:7px 10px; background:var(--surface); color:var(--text); font-size:12px; font-weight:600; }
+    .work-actions button:hover { background:var(--hover); }
+    .agent-panel-intro { margin:1px 2px 19px; color:var(--muted); font-size:13px; line-height:1.55; }
+    .agent-panel-card { display:grid; gap:7px; margin:0 0 10px; border:1px solid var(--line); border-radius:11px; padding:13px; background:var(--surface); }
+    .agent-panel-person { display:flex; align-items:center; gap:9px; min-width:0; }
+    .agent-panel-person .small-avatar { width:30px; height:30px; }
+    .agent-panel-person strong { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+    .agent-panel-state { border-radius:5px; padding:2px 6px; background:var(--chip); color:var(--muted); font-size:10px; font-weight:650; }
+    .agent-panel-card p { margin:0 0 1px 39px; color:var(--muted); font-size:12px; line-height:1.45; }
+    .agent-panel-actions { display:flex; flex-wrap:wrap; gap:7px; margin-left:39px; }
+    .agent-panel-actions button,.agent-connect-copy button { min-height:30px; border:1px solid var(--line); border-radius:7px; padding:5px 9px; background:var(--side); color:var(--text); font-size:11px; font-weight:650; }
+    .agent-panel-actions button:hover,.agent-connect-copy button:hover { border-color:var(--tint); background:var(--hover); }
+    .agent-panel-empty { padding:20px 14px; border:1px dashed var(--line); border-radius:11px; color:var(--muted); font-size:13px; line-height:1.55; }
+    .agent-panel-empty button { display:block; margin-top:13px; border:0; padding:0; background:transparent; color:var(--tint); font-weight:700; }
+    .agent-connect { display:grid; gap:11px; margin-bottom:21px; border:1px solid var(--tint); border-radius:11px; padding:15px; background:color-mix(in srgb,var(--tint) 8%,var(--surface)); }
+    .agent-connect > strong { font-size:14px; }
+    .agent-connect p,.agent-connect small { margin:0; color:var(--muted); font-size:12px; line-height:1.5; }
+    .agent-connect-copy { display:grid; gap:6px; }
+    .agent-connect-copy > span { color:var(--muted); font-size:11px; font-weight:700; }
+    .agent-connect-copy > div { display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; border:1px solid var(--line); border-radius:8px; padding:6px; background:var(--surface); }
+    .agent-connect-copy code { min-width:0; overflow-wrap:anywhere; font-size:11px; }
+    .agent-connect-copy button { flex:none; }
+    .agent-connect-done { justify-self:start; border:0; padding:6px 0; background:transparent; color:var(--tint); font-size:12px; font-weight:700; }
+    .details-intro { margin:1px 2px 16px; color:var(--muted); font-size:13px; line-height:1.55; }
+    .details-section { padding:15px 2px; border-top:1px solid var(--line); }
+    .details-section:first-child { border-top:0; padding-top:2px; }
+    .details-section h3 { margin:0 0 10px; font-size:13px; font-weight:650; }
+    .details-section p { margin:0; color:var(--muted); font-size:12px; line-height:1.5; }
+    .details-select { width:100%; min-height:36px; border:1px solid var(--line); border-radius:8px; padding:6px 9px; background:var(--surface); color:var(--text); font-size:13px; }
+    .details-member { display:flex; align-items:center; gap:10px; min-width:0; padding:7px 0; }
+    .details-member .small-avatar { width:30px; height:30px; }
+    .details-member strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:600; }
+    .details-member .agent-tag { flex:none; }
+    .details-remove { flex:none; margin-left:auto; border:0; padding:5px 0; background:transparent; color:var(--muted); font-size:11px; }
+    .details-remove:hover { color:var(--text); }
+    .details-add { margin-top:9px; }
+    .details-action { min-height:34px; border:1px solid var(--line); border-radius:8px; padding:6px 10px; background:var(--surface); color:var(--text); font-size:12px; font-weight:600; }
+    .details-action:hover { background:var(--hover); }
+    .details-manage-actions { display:flex; flex-wrap:wrap; gap:8px; }
+    .details-action.danger { color:var(--danger); }
+    .details-action.danger:hover { border-color:var(--danger); }
+    .task-row { display:grid; gap:7px; margin:0 0 9px; border:1px solid var(--line); border-radius:11px; padding:13px; background:var(--surface); }
+    .task-row.is-linked { border-color:var(--tint); background:color-mix(in srgb,var(--tint) 8%,var(--surface)); box-shadow:0 0 0 2px color-mix(in srgb,var(--tint) 12%,transparent); }
+    .task-row-head { display:flex; align-items:start; gap:8px; }
+    .task-row-head strong { flex:1; min-width:0; }
+    .task-row strong { font-size:14px; line-height:1.4; }
+    .task-row p { margin:0; color:var(--muted); font-size:13px; line-height:1.45; }
+    .task-row-meta { display:flex; flex-wrap:wrap; gap:4px 10px; color:var(--muted); font-size:11px; }
+    .task-row-actions { display:flex; align-items:center; gap:6px; }
+    .task-row-actions button { border:0; border-radius:6px; padding:3px 5px; background:transparent; color:var(--muted); font-size:11px; }
+    .task-row-actions button:hover { background:var(--hover); color:var(--text); }
+    .task-row select { width:max-content; max-width:100%; border:1px solid var(--line); border-radius:7px; padding:5px 8px; background:var(--side); color:var(--text); font-size:12px; }
+    .document-body { min-height:100px; border:1px solid var(--line); border-radius:10px; padding:14px; background:var(--surface); font-size:13px; line-height:1.6; overflow-wrap:anywhere; white-space:pre-wrap; }
+    .document-body.is-empty { color:var(--muted); }
+    .panel-form { position:relative; padding:10px max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)); border-top:1px solid var(--line); }
+    .reply-composer { overflow:hidden; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+    .reply-composer:focus-within { border-color:var(--tint); box-shadow:0 0 0 2px color-mix(in srgb,var(--tint) 16%,transparent); }
+    .reply-edit-area { min-height:56px; max-height:170px; padding:11px 12px 4px; }
+    .reply-edit-area .ProseMirror { min-height:40px; }
+    .reply-edit-area .draft-placeholder { top:11px; left:12px; }
+    .reply-actions { min-height:42px; padding:2px 7px 7px; }
+    .reply-actions .composer-tool { width:29px; height:29px; }
+    .reply-actions .send { margin-left:auto; }
+    .reply-formatting-row { padding:4px 7px; }
+    .reply-mentions { position:absolute; z-index:6; bottom:calc(100% + 6px); left:10px; width:min(310px,calc(100% - 20px)); max-height:230px; }
+    .reply-emoji { position:absolute; z-index:6; bottom:calc(100% + 6px); left:10px; max-height:230px; }
+    .reply-status { margin:5px 2px 0; color:var(--muted); font-size:11px; }
+    .reply-status:empty { display:none; }
+    .reply-status.error { color:var(--danger); }
+    .work-item { display:flex; align-items:center; gap:9px; width:100%; border:1px solid var(--line); border-radius:10px; margin:0 0 7px; padding:11px 12px; background:var(--surface); color:var(--text); text-align:left; }
+    .work-item:hover { background:var(--hover); }
+    .work-item strong { display:block; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+    .work-item-icon { display:grid; place-items:center; width:27px; height:27px; flex:none; border-radius:7px; background:var(--chip); color:var(--muted); }
+    .work-item-arrow { color:var(--muted); font-size:17px; line-height:1; }
+    .modal { position:fixed; z-index:10; inset:0 0 max(var(--host-bottom-inset),env(safe-area-inset-bottom)) 0; display:grid; place-items:center; padding:20px; background:#0007; }
+    .modal-box { display:flex; flex-direction:column; width:min(420px,100%); max-height:100%; overflow:hidden; border:1px solid var(--line); border-radius:14px; padding:18px; background:var(--surface); box-shadow:0 18px 55px #0003; }
+    :root[data-theme="dark"] .modal-box { box-shadow:none; }
+    .modal-box h2 { margin:0 0 12px; font-size:18px; }
+    #modal-fields { min-height:0; overflow-y:auto; padding-right:3px; }
+    .modal-warning { margin:2px 0 4px; color:var(--muted); font-size:13px; line-height:1.55; }
+    .modal-box label { display:block; margin:9px 0 4px; color:var(--muted); font-size:12px; font-weight:650; }
+    .modal-box input,.modal-box select { width:100%; border:1px solid var(--line); border-radius:7px; padding:8px; background:var(--bg); color:var(--text); }
+    .modal-box label:has(> input[type="checkbox"]) { display:flex; align-items:center; gap:9px; min-height:34px; margin-top:13px; color:var(--text); font-size:13px; font-weight:500; cursor:pointer; }
+    .modal-box input[type="checkbox"] { width:16px; height:16px; flex:none; margin:0; padding:0; accent-color:var(--tint); }
+    .modal-box textarea { width:100%; min-height:120px; max-height:260px; resize:vertical; border:1px solid var(--line); border-radius:7px; padding:9px; background:var(--bg); color:var(--text); }
+    .modal-status { margin:10px 0 0; color:var(--tint); font-size:13px; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:7px; margin-top:16px; }
+    .modal-actions button { border:1px solid var(--line); border-radius:7px; padding:7px 11px; background:var(--surface); color:var(--text); }
+    .modal-actions .primary { background:var(--text); color:var(--bg); }
+    .modal-actions .primary.danger { background:var(--danger); color:var(--bg); border-color:var(--danger); }
+    @media (max-width:900px) { .shell.has-panel { grid-template-columns:minmax(0,1fr); } .shell.has-panel .right-panel { position:absolute; z-index:5; top:8px; right:8px; bottom:8px; width:min(390px,calc(100% - 16px)); border:1px solid var(--line); border-radius:16px; box-shadow:0 16px 42px #0003; } }
+    @media (max-width:699px) { .conversation-head { padding:8px 12px; } #refresh { width:32px; padding:0; justify-content:center; } #refresh span { display:none; } .message-scroll { padding:12px 12px 16px; } .new-messages { right:12px; } .message-body { font-size:16px; } .composer-wrap { padding:0 10px 12px; } .draft-edit-area .ProseMirror,.draft-placeholder { font-size:16px; } .composer-hint { display:none; } .sidebar { top:62px; right:10px; width:min(310px,calc(100% - 20px)); max-height:calc(100% - 78px); } .details-intro,.details-section p,.details-select,.details-member strong { font-size:16px; } }
+    @media (max-width:420px) { .browse-button span:first-child,.compose-launch span:last-child,.ask-button span { display:none; } .browse-button,.compose-launch,.ask-button { width:36px; padding:0; } .browse-button { position:relative; } .browse-button .browse-mark { display:grid; } .browse-count { position:absolute; top:-6px; right:-5px; } .conversation-head { gap:5px; } }
+    @media (max-width:420px) { .message-actions button { display:grid; place-items:center; width:29px; min-height:29px; padding:0; } .message-actions .action-text { display:none; } .message-actions .action-icon { display:block; font-size:18px; line-height:1; font-weight:400; } }
+    @media (pointer:coarse) { .conversation-head .icon-button,.browse-button { width:48px; min-height:48px; } .group-head button { width:48px; height:48px; } .side-item { min-height:48px; } .composer-tool,.send { width:48px; height:48px; } .format-toggle { width:48px; } .compose-actions { min-height:62px; } .details-select,.details-action { min-height:48px; } }
+    .conversation-head #agents { display:none; }
+    .conversation-head #work { display:flex; width:auto; gap:7px; border:1px solid var(--line); padding:0 10px; background:var(--side); color:var(--text); font-size:12px; font-weight:600; }
+    .conversation-head #work::after { content:'Work'; }
+    @media (max-width:699px) { .conversation-head #work { display:none; } }
+    @media (min-width:1150px) {
+      .shell { grid-template-columns:248px minmax(0,1fr); }
+      .shell.has-panel { grid-template-columns:248px minmax(0,1fr) minmax(320px,min(31%,420px)); }
+      .sidebar { position:relative; z-index:1; grid-column:1; grid-row:1; top:auto; right:auto; width:auto; height:calc(100% - 16px); max-height:none; margin:8px; border:1px solid var(--line); border-radius:16px; background:color-mix(in srgb,var(--side) 91%,var(--tint) 9%); box-shadow:none; opacity:1; visibility:visible; pointer-events:auto; transform:none; transition:none; }
+      .side-scroll { flex:1; }
+      .main { grid-column:2; grid-row:1; }
+      .shell.has-panel .right-panel { grid-column:3; grid-row:1; }
+      .shell.has-panel .sidebar { right:auto; }
+      .sidebar-destinations #sidebar-work { display:none; }
+      .conversation-head #menu,.nav-scrim { display:none; }
+    }
+    @media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) .sidebar { box-shadow:none; } }
+    @media (prefers-reduced-motion:reduce) { .sidebar { transition:none; } }
+  </style>
+</head>
+<body>
+  <div class="shell" id="shell">
+    <div class="nav-scrim" id="nav-scrim" hidden></div>
+    <button class="compose-scrim" id="compose-scrim" type="button" aria-label="Close message composer" tabindex="-1"></button>
+    <aside class="sidebar" id="sidebar" aria-label="Workspace navigation" aria-hidden="true" inert>
+      <label class="sidebar-search"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="m12.5 12.5 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><input id="search" name="conversation-search" type="search" placeholder="Find a channel" aria-label="Find a conversation"><kbd id="browse-shortcut">⌘K</kbd></label>
+      <div class="side-scroll"><div class="group-head"><span>Channels</span><button id="new-channel" type="button" aria-label="Create channel" title="Create channel">+</button></div><nav class="side-list" id="channels" aria-label="Channels"></nav><div class="group-head"><span>Direct messages</span><button id="new-dm" type="button" aria-label="Start direct message" title="Start direct message">+</button></div><nav class="side-list" id="dms" aria-label="Direct messages"></nav><div class="browse-empty" id="browse-empty" hidden>No matching conversations</div></div><button class="browse-create" id="browse-create" type="button" hidden><span aria-hidden="true">+</span><span id="browse-create-label">Create channel</span></button><div class="sidebar-destinations" aria-label="More workspace views"><button id="sidebar-work" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M6.5 7h7M6.5 10.5h7M6.5 14h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Shared work</button><button id="sidebar-agents" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.5v2M10 14.5v2M3.5 10h2M14.5 10h2M5.4 5.4l1.4 1.4M13.2 13.2l1.4 1.4M14.6 5.4l-1.4 1.4M6.8 13.2l-1.4 1.4" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><rect x="6.5" y="6.5" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.35"/></svg>Agent teammates</button></div><button class="message-search-launch" id="message-search-launch" type="button" hidden><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="m12.5 12.5 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span id="message-search-label">Search messages</span></button>
+    </aside>
+    <main class="main">
+      <div class="conversation-head"><div class="conversation-title"><strong id="channel-name">Connecting…</strong><small id="channel-detail"></small></div><button id="compose-launch" class="compose-launch" type="button" aria-label="Write a team message" aria-controls="compose" aria-expanded="false"><span aria-hidden="true">＋</span><span id="compose-launch-label">Message</span></button><button class="ask-button" id="ask" type="button" aria-label="Add this channel to the assistant chat" title="Add this channel to the assistant chat"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m10 2 1.6 5.4L17 9l-5.4 1.6L10 16l-1.6-5.4L3 9l5.4-1.6L10 2Z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/><path d="m16 15 .5 1.5L18 17l-1.5.5L16 19l-.5-1.5L14 17l1.5-.5L16 15Z" fill="currentColor"/></svg><span>Ask</span></button><button class="icon-button" id="work" type="button" aria-label="Open shared work" aria-pressed="false" title="Work"><svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M6.5 7h7M6.5 10.5h7M6.5 14h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button><button class="icon-button" id="agents" type="button" aria-label="Open agent teammates" aria-pressed="false" title="Agents"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.5v2M10 14.5v2M3.5 10h2M14.5 10h2M5.4 5.4l1.4 1.4M13.2 13.2l1.4 1.4M14.6 5.4l-1.4 1.4M6.8 13.2l-1.4 1.4" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><rect x="6.5" y="6.5" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.35"/><path d="M8.5 9.5h.01M11.5 9.5h.01M8.5 11.3c.8.7 2.2.7 3 0" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></button><button class="icon-button" id="details" type="button" aria-label="Open channel details" aria-pressed="false" title="Channel details" hidden>⋯</button><button class="icon-button" id="refresh" type="button" aria-label="Reconnect to live messages" title="Reconnect to live messages"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M16.5 8a6.6 6.6 0 1 0 .1 4.2M16.5 3.8V8h-4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Reconnect</span></button><button class="browse-button" id="menu" type="button" aria-label="Browse conversations" aria-expanded="false" aria-controls="sidebar"><span>Browse</span><span class="browse-mark" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><path d="M4 5.5h12M4 10h12M4 14.5h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="browse-count" id="browse-count" aria-hidden="true" hidden></span></button></div>
+      <p class="host-toast" id="host-toast" role="status" hidden></p>
+      <div class="message-scroll" id="messages" role="log" aria-label="Conversation messages" aria-live="off"><div class="empty">Opening your workspace…</div></div>
+      <p class="sr-only" id="message-announcement" role="status" aria-live="polite" aria-atomic="true"></p>
+      <button class="new-messages" id="new-messages" type="button" hidden><span aria-hidden="true">↓</span><span id="new-messages-label">New message</span></button>
+      <div class="composer-wrap">
+        <div id="mentions" class="popover" role="listbox" aria-label="Message suggestions" hidden></div>
+        <div id="emoji" class="popover emoji-popover" hidden></div>
+        <div id="add-menu" class="popover add-popover" role="menu" aria-label="Add to message" hidden>
+          <button id="upload-choice" type="button" role="menuitem"><span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><path d="M10 12.5V3.5m0 0L6.5 7M10 3.5 13.5 7M4 12.5v2.2c0 1 .8 1.8 1.8 1.8h8.4c1 0 1.8-.8 1.8-1.8v-2.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Upload a file</button>
+          <button id="library-choice" type="button" role="menuitem"><span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><path d="M3.5 5.5h5l1.7 1.7h6.3v7.3c0 1.1-.9 2-2 2h-9c-1.1 0-2-.9-2-2v-9Z" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round"/><path d="M3.5 7.2V5.5c0-1.1.9-2 2-2h3l1.7 1.7h4.3c1.1 0 2 .9 2 2" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round"/></svg></span>Choose a shared file</button>
+          <button id="gif-choice" type="button" role="menuitem"><span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><rect x="2.7" y="4" width="14.6" height="12" rx="2" stroke="currentColor" stroke-width="1.45"/><path d="m7.5 8 4.5 2-4.5 2V8Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></span>Find a GIF</button>
+          <button id="channel-choice" type="button" role="menuitem"><span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><path d="M7.5 3.5 5.7 16.5M14.3 3.5l-1.8 13M3.5 7.5h13M3 12.5h13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>Mention a channel</button>
+        </div>
+        <div id="picker" class="popover picker-popover" hidden><div class="picker-head"><span id="picker-title"></span><button id="picker-close" type="button" aria-label="Close picker">×</button></div><input id="picker-search" class="picker-search" name="picker-search" type="search" aria-label="Search shared files or GIFs"><div id="picker-results" class="picker-list"></div><div id="picker-credit" class="picker-credit" hidden>Powered by GIPHY</div></div>
+        <input id="file-input" type="file" name="attachment" aria-label="Upload a file" hidden>
+        <form class="composer" id="compose" hidden>
+          <div class="formatting-row" id="formatting-row" role="toolbar" aria-label="Text formatting" hidden><button type="button" data-format="strong" title="Bold (⌘B)" aria-label="Bold"><strong>B</strong></button><button type="button" data-format="em" title="Italic (⌘I)" aria-label="Italic"><em>I</em></button><button type="button" data-format="strike" title="Strikethrough" aria-label="Strikethrough"><s>S</s></button><span class="format-divider"></span><button class="format-code" type="button" data-format="code" title="Inline code" aria-label="Inline code">&lt;/&gt;</button></div>
+          <div class="draft-edit-area"><div id="draft-placeholder" class="draft-placeholder">Message the conversation</div><div id="draft"></div></div>
+          <div class="queued" id="queued" hidden><span class="queued-preview" id="queued-preview" aria-hidden="true"></span><span class="queued-copy"><strong id="queued-name"></strong><small id="queued-detail"></small></span><button id="remove-queued" type="button" aria-label="Remove attachment">×</button></div>
+          <div class="compose-actions"><button class="composer-tool add-tool" id="add-button" type="button" title="Add to message" aria-label="Add to message" aria-expanded="false" aria-controls="add-menu"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button><button class="composer-tool format-toggle" id="format-toggle" type="button" title="Formatting" aria-label="Show formatting" aria-expanded="false" aria-controls="formatting-row">Aa</button><button class="composer-tool" id="emoji-button" type="button" title="Add emoji" aria-label="Add emoji" aria-expanded="false" aria-controls="emoji"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M7 11.7c.7 1 1.7 1.5 3 1.5s2.3-.5 3-1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="7.5" cy="8" r=".8" fill="currentColor"/><circle cx="12.5" cy="8" r=".8" fill="currentColor"/></svg></button><button class="composer-tool" id="mention-button" type="button" title="Mention a teammate" aria-label="Mention a teammate">@</button><span class="spacer"></span><button class="composer-tool compose-close" id="compose-close" type="button" title="Close message composer" aria-label="Close message composer">×</button><span class="composer-hint" aria-hidden="true">Enter to send · Shift Enter for a new line</span><button class="send" id="send" type="submit" title="Send message (Enter)" aria-label="Send message"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 15.5v-11m0 0L5.5 9M10 4.5 14.5 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+        </form><p id="status" class="status" role="status"></p>
+      </div>
+    </main>
+    <aside class="right-panel" id="panel" aria-label="Conversation details" hidden><div class="panel-head"><button class="panel-back" id="panel-back" type="button" aria-label="Back to shared work" hidden>‹</button><strong id="panel-title">Thread</strong><button class="panel-create" id="panel-create" type="button" hidden>New</button><button class="icon-button" id="close-panel" type="button" aria-label="Close details">×</button></div><p class="panel-status" id="panel-status" role="status"></p><div class="panel-content" id="panel-content"></div><form class="panel-form" id="reply-form" hidden><div id="reply-mentions" class="popover reply-mentions" role="listbox" aria-label="Reply suggestions" hidden></div><div id="reply-emoji" class="popover emoji-popover reply-emoji" hidden></div><div class="reply-composer"><div class="formatting-row reply-formatting-row" id="reply-formatting-row" role="toolbar" aria-label="Reply formatting" hidden><button type="button" data-reply-format="strong" aria-label="Bold" title="Bold (⌘B)"><strong>B</strong></button><button type="button" data-reply-format="em" aria-label="Italic" title="Italic (⌘I)"><em>I</em></button><button type="button" data-reply-format="strike" aria-label="Strikethrough" title="Strikethrough"><s>S</s></button><span class="format-divider"></span><button class="format-code" type="button" data-reply-format="code" aria-label="Inline code" title="Inline code">&lt;/&gt;</button></div><div class="draft-edit-area reply-edit-area"><div class="draft-placeholder" id="reply-placeholder">Reply in thread</div><div id="reply-draft"></div></div><div class="compose-actions reply-actions"><button class="composer-tool format-toggle" id="reply-format-toggle" type="button" aria-label="Show reply formatting" aria-controls="reply-formatting-row" aria-expanded="false">Aa</button><button class="composer-tool" id="reply-emoji-button" type="button" aria-label="Add emoji to reply" aria-expanded="false"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M7 11.7c.7 1 1.7 1.5 3 1.5s2.3-.5 3-1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="7.5" cy="8" r=".8" fill="currentColor"/><circle cx="12.5" cy="8" r=".8" fill="currentColor"/></svg></button><button class="composer-tool" id="reply-mention-button" type="button" aria-label="Mention a teammate in reply">@</button><button class="send" id="reply-send" type="submit" title="Send reply (Enter)" aria-label="Send reply"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 15.5v-11m0 0L5.5 9M10 4.5 14.5 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div><p class="reply-status" id="reply-status" role="status"></p></form></aside>
+  </div>
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden><form class="modal-box" id="modal-form"><h2 id="modal-title">Create</h2><div id="modal-fields"></div><p class="modal-status" id="modal-status" role="alert"></p><div class="modal-actions"><button id="cancel" type="button">Cancel</button><button class="primary" id="modal-submit" type="submit">Create</button></div></form></div>
+  <script type="module">
+    /* __AWAIT_EDITOR_BUNDLE__ */
+    const $ = (id) => document.getElementById(id);
+    const n = Object.fromEntries(['shell','sidebar','nav-scrim','compose-scrim','search','browse-shortcut','channels','dms','sidebar-work','sidebar-agents','message-search-launch','message-search-label','menu','channel-name','channel-detail','ask','work','agents','details','refresh','messages','message-announcement','host-toast','new-messages','new-messages-label','mentions','emoji','emoji-button','mention-button','add-button','add-menu','upload-choice','library-choice','gif-choice','channel-choice','picker','picker-title','picker-close','picker-search','picker-results','picker-credit','file-input','queued','queued-preview','queued-name','queued-detail','remove-queued','format-toggle','formatting-row','compose','compose-launch','compose-launch-label','compose-close','draft','draft-placeholder','send','status','panel','panel-title','panel-back','panel-create','panel-content','close-panel','reply-form','reply-draft','reply-placeholder','reply-mentions','reply-emoji','reply-format-toggle','reply-formatting-row','reply-emoji-button','reply-mention-button','reply-send','reply-status','modal','modal-form','modal-title','modal-fields','modal-submit','cancel','new-channel','new-dm'].map((id) => [id, $(id)]));
+    n['browse-empty']=$('browse-empty');n['browse-create']=$('browse-create');n['browse-create-label']=$('browse-create-label');n['browse-count']=$('browse-count');n['panel-status']=$('panel-status');n['modal-status']=$('modal-status');
+    document.querySelector('.sidebar-destinations').append(n.ask);
+    n.ask.querySelector('span').textContent='Ask assistant';
+    n['browse-shortcut'].textContent=/Mac|iPhone|iPad/.test(navigator.platform)?'⌘K':'Ctrl K';
+    let workspace = null, current = null, threadId = null, threadMessages = null, panelMode = null, workDetail = null, createdAgent = null, postId = null, replyPostId = null, posting = false, replyPosting = false, modalReturnFocus = null, modelContextSupported = false, downloadSupported = false, openLinksSupported = false, unseenMessages = 0;
+    let nextId = 0, suggestionMatches = [], suggestionIndex = 0, replySuggestions = [], replySuggestionIndex = 0, queued = null, renderedQueued = null, pickerKind = null, pickerSequence = 0, pickerTimer = null, messageSearchSequence = 0, messageSearchTimer = null;
+    const drafts = new Map();
+    const replyDrafts = new Map();
+    const deletedMessageIds = new Set();
+    const imagePreviews = new Map(), previewRequests = new Map();
+    let richEditor, replyEditor;
+    let liveSocket = null, liveConnecting = false, liveRetry = 0, liveTimer = null, liveAccessRemoved = false, syncTimer = null, readTimer = null;
+    const pending = new Map();
+    const request = (method, params) => new Promise((resolve, reject) => { const id = ++nextId; pending.set(id, {resolve,reject}); window.parent.postMessage({jsonrpc:'2.0',id,method,params}, '*'); });
+    const notify = (method, params) => window.parent.postMessage({jsonrpc:'2.0',method,params}, '*');
+    const hostStyleKeys = new Set(['--color-background-primary','--color-background-secondary','--color-background-tertiary','--color-text-primary','--color-text-secondary','--color-text-danger','--color-border-primary','--font-sans']);
+    function applyHostContext(context){
+      if(context?.theme==='light'||context?.theme==='dark')document.documentElement.dataset.theme=context.theme;
+      const bottomInset=Number(context?.safeAreaInsets?.bottom ?? window.openai?.safeArea?.insets?.bottom);
+      if(Number.isFinite(bottomInset)&&bottomInset>=0)document.documentElement.style.setProperty('--host-bottom-inset',`${Math.min(bottomInset,320)}px`);
+      const variables=context?.styles?.variables;
+      if(!variables||typeof variables!=='object')return;
+      let hasHostColors=false;
+      for(const [key,value] of Object.entries(variables)){
+        if(!hostStyleKeys.has(key)||typeof value!=='string')continue;
+        document.documentElement.style.setProperty(key,value);
+        if(key==='--color-background-primary')hasHostColors=true;
+      }
+      if(hasHostColors)document.documentElement.dataset.hostStyles='';
+    }
+    const element = (tag, value, className) => { const el=document.createElement(tag); if (value != null) el.textContent=String(value); if(className) el.className=className; return el; };
+    const workIcon = (kind,className) => { const holder=element('span',null,className),svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),path=document.createElementNS('http://www.w3.org/2000/svg','path');holder.setAttribute('aria-hidden','true');svg.setAttribute('viewBox','0 0 20 20');svg.setAttribute('fill','none');path.setAttribute('d',kind==='board'?'M3.5 4h13v12h-13V4Zm5.5 0v12M9 10h7':'M5 2.8h6.2L15 6.6v10.6H5V2.8Zm6.2 0v3.8H15M7.5 10h5M7.5 13h5');path.setAttribute('stroke','currentColor');path.setAttribute('stroke-width','1.45');path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');svg.append(path);holder.append(svg);return holder; };
+    const shortTime = (value) => { const date=new Date(Number(value)); return Number.isNaN(date.getTime())?'':date.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}); };
+    const status = (value, error=false) => { n.status.textContent=value; n.status.classList.toggle('error',error); };
+    const panelStatus = (value, error=false) => { n['panel-status'].textContent=value; n['panel-status'].classList.toggle('error',error); };
+    const modalStatus = (value, error=false) => { n['modal-status'].textContent=value; n['modal-status'].classList.toggle('error',error); };
+    const replyStatus = (value, error=false) => { n['reply-status'].textContent=value;n['reply-status'].classList.toggle('error',error); };
+    let hostNoticeTimer=null;
+    const hostNotice=(value)=>{n['host-toast'].textContent=value;n['host-toast'].hidden=false;if(hostNoticeTimer)clearTimeout(hostNoticeTimer);hostNoticeTimer=setTimeout(()=>{n['host-toast'].hidden=true;n['host-toast'].textContent=''},3200)};
+    async function attachToHost(label,details,feedback=hostNotice){
+      await request('ui/update-model-context',{content:[{type:'text',text:details.join('\n'),_meta:{'openai/title':label}}]});
+      const notice=`${label} added to your chat.`;
+      feedback(notice);
+      setTimeout(()=>{if(n.status.textContent===notice)status('');if(n['panel-status'].textContent===notice)panelStatus('')},5500);
+    }
+    const messageScroll = () => ({top:n.messages.scrollTop,follow:n.messages.scrollHeight-n.messages.scrollTop-n.messages.clientHeight<100});
+    const restoreMessageScroll = (position) => { n.messages.scrollTop=position.follow?n.messages.scrollHeight:position.top; };
+    const clearUnseenMessages = () => { unseenMessages=0;n['new-messages'].hidden=true; };
+    const showUnseenMessage = () => { unseenMessages+=1;n['new-messages-label'].textContent=`${unseenMessages} new ${unseenMessages===1?'message':'messages'}`;n['new-messages'].hidden=false; };
+    function announceIncoming(messages,channel){
+      if(document.hidden||!messages.length)return;
+      const place=channel.is_dm?channel.name:`#${channel.name}`;
+      const author=messages.length===1?workspace.members?.find((person)=>person.account_id===messages[0].author_id)?.name:null;
+      const kind=messages[0].thread_id?'reply':'message';
+      n['message-announcement'].textContent=messages.length===1?`New ${kind} from ${author||'a teammate'} in ${place}.`:`${messages.length} new messages in ${place}.`;
+    }
+    function reconcileCaughtUpMessages(previousMessages,previousId,position){
+      if(!previousId||previousId!==current?.channel?.id)return;
+      const known=new Set(previousMessages.filter((message)=>!message.optimistic).map((message)=>message.id));
+      const incoming=(current.messages||[]).filter((message)=>!message.optimistic&&!message.thread_id&&!known.has(message.id)&&message.author_id!==workspace.viewer?.account_id);
+      if(!incoming.length)return;
+      if(position.follow){clearUnseenMessages();queueCurrentRead()}
+      else for(const message of incoming)showUnseenMessage();
+      announceIncoming(incoming,current.channel);
+    }
+    function mergeSnapshotMessages(saved=[],visible=[]){
+      const ids=new Set(saved.map((message)=>message.id)),clientIds=new Set(saved.map((message)=>message.client_id).filter(Boolean));
+      const latest=saved.reduce((time,message)=>Math.max(time,Number(message.created_at)||0),0);
+      const recent=visible.filter((message)=>!ids.has(message.id)&&!(message.optimistic&&clientIds.has(message.client_id))&&(message.optimistic||(Number(message.created_at)||0)>=latest));
+      return [...saved,...recent].map((message)=>deletedMessageIds.has(message.id)?{...message,body:'',deleted_at:message.deleted_at||Date.now(),attachments:[],reactions:[]}:message).sort((a,b)=>(Number(a.created_at)||0)-(Number(b.created_at)||0));
+    }
+    const resultOf = (response) => response?.structuredContent?.result;
+    const callTool = async (name,args={}) => { await ready; const response=await request('tools/call',{name,arguments:args}); if(response?.isError) throw new Error(response.content?.[0]?.text||'The action could not be completed.'); return resultOf(response); };
+    function queueCurrentRead(delay=180){
+      if(readTimer)clearTimeout(readTimer);
+      const channelId=current?.channel?.id,last=current?.messages?.at(-1);
+      if(!channelId||!last||last.optimistic)return;
+      readTimer=setTimeout(()=>{readTimer=null;callTool('mark_read',{channel_id:channelId,message_id:last.id}).then(()=>{
+        if(current?.channel?.id!==channelId)return;
+        const channel=workspace?.channels?.find((item)=>item.id===channelId);
+        if(channel){channel.unread=0;channel.mentions=0;renderSidebar()}
+      }).catch(()=>{})},delay);
+    }
+    const closeReplyPopovers = () => { n['reply-mentions'].hidden=true;n['reply-emoji'].hidden=true;n['reply-emoji-button'].setAttribute('aria-expanded','false');replyEditor?.dom.setAttribute('aria-expanded','false');replyEditor?.dom.removeAttribute('aria-activedescendant'); };
+    const closePopovers = () => { n.mentions.hidden=true; n.emoji.hidden=true; n['add-menu'].hidden=true; n.picker.hidden=true; n['emoji-button'].setAttribute('aria-expanded','false'); n['add-button'].setAttribute('aria-expanded','false'); richEditor?.dom.setAttribute('aria-expanded','false'); richEditor?.dom.removeAttribute('aria-activedescendant'); closeReplyPopovers(); for(const picker of document.querySelectorAll('.reaction-picker'))picker.hidden=true;for(const button of document.querySelectorAll('.add-reaction'))button.setAttribute('aria-expanded','false'); };
+    const sidebarDocked = matchMedia('(min-width:1150px)');
+    const focusNavigation = () => (sidebarDocked.matches?n.search:n.menu).focus();
+    const closeSidebar = (restoreFocus=false) => { const wasOpen=n.shell.classList.contains('show-sidebar');n.shell.classList.remove('show-sidebar');n.sidebar.inert=!sidebarDocked.matches;n.sidebar.setAttribute('aria-hidden',String(!sidebarDocked.matches));n['nav-scrim'].hidden=true;n.menu.setAttribute('aria-expanded','false');if(restoreFocus&&wasOpen&&!sidebarDocked.matches)focusNavigation(); };
+    const openSidebar = () => { closePopovers();if(!sidebarDocked.matches){n.shell.classList.add('show-sidebar');n['nav-scrim'].hidden=false;n.menu.setAttribute('aria-expanded','true')}n.sidebar.inert=false;n.sidebar.setAttribute('aria-hidden','false');n.search.focus();n.search.select(); };
+    sidebarDocked.addEventListener('change',()=>closeSidebar());
+    closeSidebar();
+    const openComposer = () => { if(!current?.channel||workspace?.permissions?.includes('post')===false)return;closeSidebar();closePopovers();richEditor.focus(); };
+    const closeComposer = () => { closePopovers(); };
+    const fileSize=(bytes)=>bytes<1024?`${bytes} B`:bytes<1024*1024?`${Math.round(bytes/1024)} KB`:`${(bytes/(1024*1024)).toFixed(1)} MB`;
+    const fileType=(mime,filename='')=>{const type=(mime||'').toLowerCase().split(';')[0];if(type==='application/pdf')return'PDF';if(type==='text/plain')return'Text file';if(type.startsWith('image/'))return'Image';if(type.startsWith('audio/'))return'Audio';if(type.startsWith('video/'))return'Video';if(type.includes('spreadsheet')||type.includes('excel')||/\.csv$/i.test(filename))return'Spreadsheet';if(type.includes('word')||type.includes('document'))return'Document';return filename.split('.').at(-1)?.toUpperCase()||'File'};
+    function renderQueued(){
+      n.queued.hidden=!queued;if(renderedQueued===queued)return;renderedQueued=queued;n['queued-preview'].replaceChildren();
+      if(!queued){n['queued-name'].textContent='';n['queued-detail'].textContent='';return}
+      const item=queued.item, file=queued.file, preview=queued.previewUrl||(queued.kind==='gif'?item.preview:null);
+      if(preview){const image=element('img');image.src=preview;image.alt='';n['queued-preview'].append(image)}
+      else n['queued-preview'].textContent=queued.kind==='gif'?'GIF':(file?.name||item?.filename||'File').split('.').at(-1).slice(0,4).toUpperCase();
+      n['queued-name'].textContent=queued.kind==='file'?file.name:item.title||item.filename||'Selected item';
+      n['queued-detail'].textContent=queued.kind==='gif'?'GIF · GIPHY':`${fileType(queued.kind==='file'?file.type:item.mime,queued.kind==='file'?file.name:item.filename)} · ${fileSize(queued.kind==='file'?file.size:item.size||0)}`;
+    }
+    const clearQueued=()=>{if(queued?.previewUrl?.startsWith('blob:'))URL.revokeObjectURL(queued.previewUrl);queued=null;renderQueued()};
+    const syncComposer = () => { const body=richEditor.markdown(); n.send.disabled=posting||!current?.channel||workspace?.permissions?.includes('post')===false||(!body.trim()&&!queued)||body.length>12000; n['draft-placeholder'].hidden=!!body; renderQueued(); if(body.length>12000)status('Messages must be 12,000 characters or fewer.',true); };
+    const syncReply = () => { const body=replyEditor.markdown();n['reply-send'].disabled=replyPosting||!threadId||workspace?.permissions?.includes('post')===false||!body.trim()||body.length>12000;n['reply-placeholder'].hidden=!!body;if(body.length>12000)replyStatus('Replies must be 12,000 characters or fewer.',true); };
+    function messageBody(message){
+      const body=element('p',null,'message-body');
+      if(message.deleted_at){body.textContent='Message deleted';return body}
+      const source=message.body||'';
+      const shared=/^Shared a (task|board|document): \[([^\]\n]+)\]\((\/w\/[^)\s]+)\)$/.exec(source);
+      if(shared){
+        try{
+          const url=new URL(shared[3],workspace?.origin||'https://await.chat'),kind=shared[1],id=kind==='document'?url.searchParams.get('doc'):url.searchParams.get('board'),taskId=kind==='task'?url.searchParams.get('task'):null;
+          if(id){const card=element('button',null,'shared-work-card');card.type='button';const icon=workIcon(kind==='document'?'document':'board','shared-work-icon'),copy=element('span',null,'shared-work-copy');copy.append(element('strong',shared[2]),element('small',kind==='document'?'Document':kind==='task'?'Task in board':'Task board'));card.append(icon,copy);card.addEventListener('click',()=>openWorkItem(kind==='document'?'document':'board',id,taskId));body.append(card);return body}
+        }catch{}
+      }
+      const pattern=/<@([\w-]+)>|<#([\w-]+)>|<task:([\w-]+)>|\*\*([^*\n]+)\*\*|~~([^~\n]+)~~|`([^`\n]+)`|\*([^*\n]+)\*|!\[GIF\]\((https:\/\/(?:media\d*|i)\.giphy\.com\/[^)\s]+)\)|\[View on GIPHY\]\((https:\/\/giphy\.com\/[^)\s]+)\)/g;
+      let end=0,match;
+      while((match=pattern.exec(source))){
+        if(match.index>end)body.append(document.createTextNode(source.slice(end,match.index)));
+        if(match[1]){const name=workspace?.members?.find((member)=>member.account_id===match[1])?.name||'teammate';body.append(element('span',`@${name}`,'message-mention'))}
+        else if(match[2]){const channel=workspace?.channels?.find((item)=>item.id===match[2]&&item.joined&&!item.archived_at);if(channel){const link=element('button',`#${channel.name}`,'message-channel');link.type='button';link.title=`Open #${channel.name}`;link.addEventListener('click',()=>selectChannel(channel.id));body.append(link)}else body.append(element('span','#channel','message-mention'))}
+        else if(match[3]){const task=(message.tasks||[]).find((item)=>item.id===match[3]);if(task){const link=element('button',`#${task.title}`,`message-channel message-task status-${task.status}`);link.type='button';link.title=`Open task (${task.status})`;link.addEventListener('click',()=>openWorkItem('board',task.board_id,task.id));body.append(link)}else body.append(element('span','#task','message-mention'))}
+        else if(match[8]){const img=element('img',null,'message-gif');img.src=match[8];img.alt='GIF';img.loading='lazy';body.append(img)}
+        else if(match[9]){const link=element('a','View on GIPHY','gif-credit');link.href=match[9];link.target='_blank';link.rel='noopener noreferrer';body.append(link)}
+        else body.append(element(match[4]?'strong':match[5]?'s':match[6]?'code':'em',match[4]||match[5]||match[6]||match[7]));
+        end=pattern.lastIndex;
+      }
+      if(end<source.length)body.append(document.createTextNode(source.slice(end)));
+      return body;
+    }
+    const saveReplyDraft = () => { if(threadId&&replyEditor)replyDrafts.set(threadId,replyEditor.snapshot());closeReplyPopovers(); };
+    const openPanelLayout = () => { const position=messageScroll();n.panel.hidden=false;n.shell.classList.add('has-panel');n.details.setAttribute('aria-pressed',String(panelMode==='details'));requestAnimationFrame(()=>restoreMessageScroll(position)); };
+    const closePanel = () => { if(n.panel.hidden)return;const position=messageScroll();saveReplyDraft();messageSearchSequence++;if(messageSearchTimer)clearTimeout(messageSearchTimer);panelMode=null; workDetail=null; threadId=null; threadMessages=null; panelStatus('');n.panel.hidden=true; n.shell.classList.remove('has-panel');requestAnimationFrame(()=>restoreMessageScroll(position));n.work.setAttribute('aria-pressed','false');n.agents.setAttribute('aria-pressed','false');n.details.setAttribute('aria-pressed','false'); };
+    const avatar = (person) => { const parts=(person?.name||'?').trim().split(/\s+/); const initials=parts.length>1?`${parts[0][0]}${parts.at(-1)[0]}`:parts[0].slice(0,2); const el=element('span',initials.toUpperCase(),`small-avatar${person?.kind==='agent'?' agent':''}`); el.setAttribute('aria-hidden','true'); return el; };
+    function messageRow(message, inThread=false) {
+      const person=message.author||workspace?.members?.find((member)=>member.account_id===message.author_id)||{name:'Former member'};
+      const row=element('article',null,'message');row.dataset.messageId=message.id;row.tabIndex=-1;
+      const main=element('div',null,'message-main'), meta=element('div',null,'message-meta');
+      meta.append(element('strong',person.name||'Former member'));
+      if(person.kind==='agent') meta.append(element('span','Agent','agent-tag'));
+      const time=element('time',shortTime(message.created_at));
+      const date=new Date(Number(message.created_at)); if(!Number.isNaN(date.getTime())) time.dateTime=date.toISOString();
+      meta.append(time);if(message.edited_at)meta.append(element('span','Edited','delivery-label'));if(message.optimistic)meta.append(element('span','Sending…','delivery-label'));main.append(meta,messageBody(message));
+      for(const file of message.attachments||[]){
+        const card=element('a',null,'message-file'),preview=element('span',null,'message-file-preview'),copy=element('span',null,'message-file-copy');
+        card.href=`${workspace?.origin||'https://await.chat'}/api/workspaces/${encodeURIComponent(workspace.workspace.id)}/files/${encodeURIComponent(file.id)}`;
+        card.target='_blank';card.rel='noopener noreferrer';card.setAttribute('aria-label',`${downloadSupported?'Download':'Open'} ${file.filename||'file'} from Await`);
+        const image=/^image\/(?:png|jpeg|gif|webp|avif)$/.test(file.mime||'')&&file.size<=2*1024*1024;
+        preview.textContent=image?'IMG':(file.filename||'File').split('.').at(-1).slice(0,4).toUpperCase();
+        copy.append(element('strong',file.filename||'File'),element('small',`${fileType(file.mime,file.filename)} · ${fileSize(file.size||0)}`));
+        card.append(preview,copy,element('span',downloadSupported?'↓':'↗','message-file-open'));main.append(card);
+        card.addEventListener('click',async(event)=>{
+          if(!downloadSupported&&!openLinksSupported)return;
+          event.preventDefault();card.setAttribute('aria-busy','true');
+          try{
+            const link=await callTool('get_file_download_link',{attachment_id:file.id});
+            if(!link?.url)throw new Error('File link was not returned.');
+            const result=downloadSupported
+              ?await request('ui/download-file',{contents:[{type:'resource_link',uri:link.url,name:link.filename||file.filename||'File',mimeType:link.mime||file.mime||'application/octet-stream',size:link.size||file.size||0}]})
+              :await request('ui/open-link',{url:link.url});
+            if(result?.isError)hostNotice(downloadSupported?'Download cancelled.':'The browser did not open this file.');
+          }catch(error){hostNotice(error.message||'Could not open this file.');}
+          finally{card.removeAttribute('aria-busy')}
+        });
+        if(image){
+          const show=(url)=>{const img=element('img');img.src=url;img.alt='';preview.replaceChildren(img)};
+          const cached=imagePreviews.get(file.id);
+          if(cached)show(cached);
+          else{
+            const load=()=>{let pending=previewRequests.get(file.id);if(!pending){pending=callTool('get_file',{attachment_id:file.id}).then((data)=>{if(!data?.content_base64||!/^image\/(?:png|jpeg|gif|webp|avif)$/.test(data.mime))return null;const url=`data:${data.mime};base64,${data.content_base64}`;if(imagePreviews.size>=20)imagePreviews.delete(imagePreviews.keys().next().value);imagePreviews.set(file.id,url);return url}).catch(()=>null).finally(()=>previewRequests.delete(file.id));previewRequests.set(file.id,pending)}pending.then((url)=>{if(url)show(url)})};
+            if('IntersectionObserver' in window){const observer=new IntersectionObserver((entries)=>{if(entries.some((entry)=>entry.isIntersecting)){observer.disconnect();load()}});observer.observe(card)}else load();
+          }
+        }
+      }
+      if(message.reactions?.length){const reactions=element('div',null,'reactions'); for(const reaction of message.reactions){const canReact=workspace?.permissions?.includes('post')!==false&&!message.deleted_at,chip=element(canReact?'button':'span',`${reaction.emoji} ${reaction.count}`,'reaction');if(canReact){chip.type='button';chip.title='Toggle reaction';chip.dataset.reactionEmoji=reaction.emoji;chip.setAttribute('aria-label',`${reaction.emoji} reaction, ${reaction.count}. Select to toggle.`);chip.addEventListener('click',()=>toggleMessageReaction(message.id,reaction.emoji,chip))}reactions.append(chip)}main.append(reactions)}
+      if(!message.deleted_at&&!message.optimistic){
+        const actions=element('div',null,'message-actions');
+        if(!inThread){const reply=element('button',null,'reply-action');reply.type='button';reply.append(element('span',message.reply_count?`${message.reply_count} ${message.reply_count===1?'reply':'replies'}`:'Reply','action-text'),element('span','↩','action-icon'));reply.setAttribute('aria-label',`Reply to ${person.name||'this message'}${message.reply_count?`, ${message.reply_count} ${message.reply_count===1?'reply':'replies'}`:''}`);reply.addEventListener('click',()=>openThread(message.id));actions.append(reply)}
+        if(modelContextSupported){const ask=element('button',null,'ask-action');ask.type='button';ask.append(element('span','Ask','action-text'),element('span','✧','action-icon'));ask.setAttribute('aria-label',`Ask about ${person.name||'this person'}'s message`);ask.title='Add this message to your assistant chat';ask.addEventListener('click',async()=>{ask.disabled=true;const channel=current?.channel,label=channel?(channel.is_dm?channel.name:`#${channel.name}`):'conversation';try{await attachToHost(`Message from ${person.name||'a teammate'}`,[`Await workspace ID: ${workspace.workspace.id}`,`Conversation: ${label}`,`Channel ID: ${message.channel_id}`,`Message ID: ${message.id}`,...(message.thread_id?[`Thread ID: ${message.thread_id}`]:[]),'Use the connected Await tools to read this message and its thread when asked.'],inThread?panelStatus:hostNotice)}catch(error){(inThread?panelStatus:status)(error.message||'Could not add this message to your chat.',true)}finally{ask.disabled=false}});actions.append(ask)}
+        if(workspace?.permissions?.includes('post')!==false){
+          const picker=element('div',null,'reaction-picker');picker.hidden=true;picker.id=`reaction-choices-${message.id}`;picker.setAttribute('role','group');picker.setAttribute('aria-label','Choose a reaction');
+          const react=element('button','☺','add-reaction');react.type='button';react.title='Add reaction';react.setAttribute('aria-label','Add reaction');react.setAttribute('aria-controls',picker.id);react.setAttribute('aria-expanded','false');react.addEventListener('click',()=>{const open=picker.hidden;closePopovers();picker.hidden=!open;react.setAttribute('aria-expanded',String(open));if(open)picker.querySelector('button')?.focus()});actions.append(react);
+          for(const emoji of ['👍','❤️','😂','🎉','👀','🙏']){const choice=element('button',emoji);choice.type='button';choice.setAttribute('aria-label',`React with ${emoji}`);choice.addEventListener('click',()=>toggleMessageReaction(message.id,emoji,choice));picker.append(choice)}
+          main.append(picker);
+          if(message.author_id===workspace.viewer?.account_id){const edit=element('button',null,'edit-action');edit.type='button';edit.append(element('span','Edit','action-text'),element('span','✎','action-icon'));edit.setAttribute('aria-label','Edit your message');edit.addEventListener('click',()=>openModal('edit-message',message));actions.append(edit)}
+          if(message.author_id===workspace.viewer?.account_id||['owner','admin'].includes(workspace.viewer?.role)){const remove=element('button',null,'danger delete-action');remove.type='button';remove.append(element('span','Delete','action-text'),element('span','×','action-icon'));remove.setAttribute('aria-label',`Delete ${person.name||'this person'}'s message`);remove.addEventListener('click',()=>openModal('delete-message',message));actions.append(remove)}
+        }
+        if(actions.childElementCount)main.append(actions);
+      }
+      row.append(avatar(person),main); return row;
+    }
+    function renderSidebar() {
+      if(!workspace) return;
+      const search=n.search.value.trim().toLowerCase();
+      const joined=(workspace.channels||[]).filter((item)=>item.joined);
+      const canPost=workspace.permissions?.includes('post')!==false;
+      const dmRecipients=(workspace.members||[]).filter((person)=>person.account_id!==workspace.viewer?.account_id);
+      const unreadChannels=joined.filter((item)=>item.unread>0);
+      const mentions=joined.reduce((total,item)=>total+(Number(item.mentions)||0),0);
+      const badge=mentions||unreadChannels.length;
+      n['browse-count'].hidden=!badge;
+      n['browse-count'].textContent=badge>99?'99+':String(badge);
+      n['browse-count'].classList.toggle('mention',mentions>0);
+      n.menu.setAttribute('aria-label',mentions?`Browse conversations, ${mentions} ${mentions===1?'mention':'mentions'}`:unreadChannels.length?`Browse conversations, ${unreadChannels.length} unread ${unreadChannels.length===1?'conversation':'conversations'}`:'Browse conversations');
+      let matchCount=0;
+      for(const [target,isDm] of [[n.channels,false],[n.dms,true]]) {
+        target.replaceChildren();
+        const items=joined.filter((item)=>Boolean(item.is_dm)===isDm&&(!search||item.name.toLowerCase().includes(search)));
+        matchCount+=items.length;
+        if(isDm)n['new-dm'].hidden=!canPost||!dmRecipients.length||(!items.length&&!search);
+        for(const item of items){const button=element('button',null,'side-item');button.type='button';button.dataset.channelId=item.id;button.setAttribute('aria-current',current?.channel?.id===item.id?'page':'false');const prefix=element('span',null,'prefix');prefix.setAttribute('aria-hidden','true');prefix.innerHTML=isDm?'<svg viewBox="0 0 20 20" fill="none"><path d="M3 15.5v-1.3a5 5 0 0 1 5-5h1M17 4.5v1.3a5 5 0 0 1-5 5h-1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="m6.5 12.8-3.5 2.7 3.5 2M13.5 7.2 17 4.5l-3.5-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':item.is_private?'<svg viewBox="0 0 20 20" fill="none"><rect x="4" y="9" width="12" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6.5 9V6a3.5 3.5 0 0 1 7 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>':'#';button.append(prefix,element('span',item.name,'label'));if(item.mentions||item.unread) button.append(element('span',item.mentions||item.unread,`count${item.mentions?' mention':''}`));button.addEventListener('click',()=>selectChannel(item.id));target.append(button)}
+        if(!items.length&&!search&&!isDm) target.append(element('div','No channels yet.','empty'));
+        if(!items.length&&!search&&isDm){if(canPost&&dmRecipients.length){const action=element('button',null,'start-dm-empty');action.type='button';action.append(element('span','+'),document.createTextNode('Start a direct message'));action.addEventListener('click',()=>{closeSidebar();openModal('dm')});target.append(action)}else target.append(element('div','No direct messages yet.','side-empty'))}
+      }
+      n['new-channel'].hidden=!canPost;
+      const canCreateChannel=canPost;
+      n.sidebar.classList.toggle('search-empty',Boolean(search&&!matchCount));
+      n['browse-empty'].hidden=!search||matchCount>0||canCreateChannel;
+      n['browse-create'].hidden=!search||matchCount>0||!canCreateChannel;
+      n['browse-create-label'].textContent=`Create #${n.search.value.trim()}`;
+      n['browse-create'].setAttribute('aria-label',`Create channel ${n.search.value.trim()}`);
+      n['message-search-launch'].hidden=search.length<2;
+      n['message-search-label'].textContent=search.length>=2?`Search messages for “${n.search.value.trim()}”`:'Search messages';
+    }
+    function renderWelcome(channel){
+      const welcome=element('section',null,'welcome');welcome.append(element('span',channel.is_dm?'↔':channel.is_private?'⌑':'#','welcome-mark'));
+      welcome.append(element('h1',channel.is_dm?'Say hello':`Welcome to #${channel.name}`));
+      welcome.append(element('p',channel.description||'This is the start of your team’s conversation.'));
+      return welcome;
+    }
+    const messageDay=(timestamp)=>{const date=new Date(Number(timestamp));return Number.isNaN(date.getTime())?'':date.toDateString()};
+    const messageDayLabel=(timestamp)=>{const date=new Date(Number(timestamp));if(Number.isNaN(date.getTime()))return '';const today=new Date(),yesterday=new Date(today);yesterday.setDate(today.getDate()-1);if(date.toDateString()===today.toDateString())return 'Today';if(date.toDateString()===yesterday.toDateString())return 'Yesterday';return date.toLocaleDateString(undefined,{month:'short',day:'numeric',...(date.getFullYear()!==today.getFullYear()?{year:'numeric'}:{})})};
+    function groupNearbyMessages(){
+      const byId=new Map((current?.messages||[]).map((message)=>[message.id,message]));
+      n.messages.querySelectorAll(':scope > .day-divider').forEach((divider)=>divider.remove());
+      let previous=null,previousDay='';
+      for(const row of n.messages.querySelectorAll(':scope > .message')){
+        const message=byId.get(row.dataset.messageId);
+        const day=message?messageDay(message.created_at):'';
+        if(day&&day!==previousDay){const label=messageDayLabel(message.created_at);const divider=element('div',label,'day-divider');divider.setAttribute('role','separator');divider.setAttribute('aria-label',label);row.before(divider)}
+        const gap=message&&previous?Number(message.created_at)-Number(previous.created_at):Infinity;
+        row.classList.toggle('compact',Boolean(message&&previous&&day===previousDay&&!message.deleted_at&&!previous.deleted_at&&message.author_id===previous.author_id&&gap>=0&&gap<=5*60*1000));
+        previous=message||null;
+        previousDay=day;
+      }
+    }
+    function renderConversation() {
+      renderSidebar(); n.messages.replaceChildren();
+      n.compose.hidden=!current?.channel;
+      if(!current?.channel){n['channel-name'].textContent='Conversations';n['channel-detail'].textContent='Choose or create a channel';n['compose-launch-label'].textContent='Message';n['compose-launch'].disabled=true;n['compose-launch'].hidden=true;n.details.hidden=true;n.ask.classList.remove('available');n.messages.append(element('div','Your conversations will appear here.','empty'));richEditor.setEditable(false);n.send.disabled=true;return}
+      const canPost=workspace?.permissions?.includes('post')!==false;
+      richEditor.setEditable(canPost);replyEditor.setEditable(canPost);syncComposer();syncReply();
+      n['new-channel'].disabled=!canPost;n['new-dm'].disabled=!canPost;
+      const channel=current.channel;
+      n.details.hidden=false;n.details.setAttribute('aria-label',channel.is_dm?'Open conversation details':`Open #${channel.name} details`);n.details.title=channel.is_dm?'Conversation details':`#${channel.name} details`;
+      n.ask.classList.toggle('available',modelContextSupported);
+      n.ask.setAttribute('aria-label',`Add ${channel.is_dm?channel.name:`#${channel.name}`} to the assistant chat`);
+      n['channel-name'].textContent=channel.is_dm?channel.name:`${channel.is_private?'⌑':'#'} ${channel.name}`;
+      n['channel-detail'].textContent=channel.description||'';
+      const label=!canPost?'This connection has read-only access.':channel.is_dm?'Message this conversation':`Message #${channel.name}`;
+      n['draft-placeholder'].textContent=label;n['compose-launch-label'].textContent='Message';n['compose-launch'].setAttribute('aria-label',label);n['compose-launch'].disabled=!canPost;n['compose-launch'].hidden=!current.messages?.length;richEditor.setLabel(label);
+      if(!current.messages?.length)n.messages.append(renderWelcome(channel));
+      if(!current.messages?.length)return;
+      for(const message of current.messages) n.messages.append(messageRow(message));
+      groupNearbyMessages();
+    }
+    function mergeVisibleMessage(message, clientId=message.client_id){
+      if(current?.channel?.id!==message.channel_id)return;
+      message.author=workspace.members?.find((person)=>person.account_id===message.author_id)||{name:'Former member'};
+      const messages=current.messages||(current.messages=[]);
+      const index=messages.findIndex((item)=>item.id===message.id||(item.optimistic&&clientId&&item.client_id===clientId));
+      const previous=index>=0?messages[index]:null;
+      if(index>=0)messages[index]=message;else messages.push(message);
+      if(messages.length){n.messages.querySelector('.welcome')?.remove();n['compose-launch'].hidden=false}
+      const position=messageScroll(),row=messageRow(message),oldRow=previous?[...n.messages.children].find((item)=>item.dataset.messageId===previous.id):null;
+      if(oldRow)oldRow.replaceWith(row);else{n.messages.querySelector('.empty')?.remove();n.messages.append(row)}
+      groupNearbyMessages();
+      const ownMessage=message.author_id===workspace.viewer?.account_id;
+      restoreMessageScroll({...position,follow:position.follow||ownMessage});
+      if(position.follow||ownMessage)clearUnseenMessages();
+      else if(!previous)showUnseenMessage();
+    }
+    function removeOptimistic(clientId){
+      if(!current?.messages)return;
+      const index=current.messages.findIndex((item)=>item.optimistic&&item.client_id===clientId);
+      if(index<0)return;
+      const [message]=current.messages.splice(index,1);
+      [...n.messages.children].find((item)=>item.dataset.messageId===message.id)?.remove();
+      groupNearbyMessages();
+      if(!current.messages.length&&current.channel){n['compose-launch'].hidden=true;if(!n.messages.querySelector('.welcome'))n.messages.append(renderWelcome(current.channel))}
+    }
+    function applyEditedMessage(updated){
+      if(current?.channel?.id!==updated?.channel_id)return;
+      const position=messageScroll(),index=current.messages?.findIndex((message)=>message.id===updated.id)??-1;
+      if(index>=0){current.messages[index]={...current.messages[index],...updated};renderConversation();restoreMessageScroll(position)}
+      const replyIndex=threadMessages?.findIndex((message)=>message.id===updated.id)??-1;
+      if(replyIndex>=0){threadMessages[replyIndex]={...threadMessages[replyIndex],...updated};renderPanel()}
+    }
+    function focusReaction(messageId,emoji,inPanel=false){
+      for(const scope of inPanel?[n['panel-content'],n.messages]:[n.messages,n['panel-content']]){const row=[...scope.querySelectorAll('.message')].find((item)=>item.dataset.messageId===messageId);if(!row)continue;const chip=[...row.querySelectorAll('button.reaction')].find((item)=>item.dataset.reactionEmoji===emoji);(chip||row.querySelector('.add-reaction'))?.focus({preventScroll:true});return}
+    }
+    async function toggleMessageReaction(messageId,emoji,button){
+      const inPanel=n.panel.contains(button);button.disabled=true;
+      try{
+        const result=await callTool('toggle_reaction',{message_id:messageId,emoji});
+        const update=(message)=>{if(message.id!==messageId)return message;const reactions=[...(message.reactions||[])],index=reactions.findIndex((item)=>item.emoji===emoji),previous=index>=0?reactions[index]:{emoji,count:0,mine:0},active=Boolean(result?.active),count=Math.max(0,Number(previous.count||0)+Number(active)-Number(Boolean(previous.mine)));if(index>=0)reactions.splice(index,1);if(count)reactions.splice(index>=0?index:reactions.length,0,{...previous,count,mine:Number(active)});return{...message,reactions}};
+        const position=messageScroll();
+        if(current?.messages?.some((message)=>message.id===messageId)){current.messages=current.messages.map(update);renderConversation();restoreMessageScroll(position)}
+        if(threadMessages?.some((message)=>message.id===messageId)){threadMessages=threadMessages.map(update);renderPanel()}
+        focusReaction(messageId,emoji,inPanel);
+        scheduleSync();
+      }catch(error){status(error.message||'Could not update reaction.',true);button.disabled=false}
+    }
+    function applyDeletedMessage(messageId){
+      if(!messageId)return;
+      deletedMessageIds.add(messageId);if(deletedMessageIds.size>500)deletedMessageIds.delete(deletedMessageIds.values().next().value);
+      const position=messageScroll();
+      const tombstone=(message)=>message.id===messageId?{...message,body:'',deleted_at:Date.now(),attachments:[],reactions:[]}:message;
+      if(current?.messages?.some((message)=>message.id===messageId)){current.messages=current.messages.map(tombstone);renderConversation();restoreMessageScroll(position)}
+      if(threadMessages?.some((message)=>message.id===messageId)){threadMessages=threadMessages.map(tombstone);renderPanel()}
+    }
+    function receive(response){const data=resultOf(response);if(data?.workspace&&Array.isArray(data.channels)){workspace=data;current=data.current;renderConversation();n.messages.scrollTop=n.messages.scrollHeight;connectLive()}}
+    async function refreshWorkspace(channelId=current?.channel?.id){const previousId=current?.channel?.id,previousMessages=current?.messages||[],position=messageScroll(),agentScroll=panelMode==='agents'?n['panel-content'].scrollTop:null,detailsScroll=panelMode==='details'?n['panel-content'].scrollTop:null;const data=await callTool('open_workspace',channelId?{channel_id:channelId}:{});workspace=data;current=data.current;if(previousId&&previousId===current?.channel?.id)current.messages=mergeSnapshotMessages(current.messages,previousMessages);liveAccessRemoved=false;renderConversation();restoreMessageScroll(previousId===current?.channel?.id?position:{top:0,follow:true});reconcileCaughtUpMessages(previousMessages,previousId,position);if(agentScroll!==null){showAgents();n['panel-content'].scrollTop=agentScroll}if(detailsScroll!==null){await showDetails();n['panel-content'].scrollTop=detailsScroll}connectLive();return data}
+    function scheduleSync(full=false){if(syncTimer)clearTimeout(syncTimer);syncTimer=setTimeout(async()=>{syncTimer=null;try{if(full)await refreshWorkspace();else await refreshCurrent()}catch(error){status(error.message||'Could not load the latest changes.',true)}},180)}
+    function onLiveEvent(event){
+      if(event.type==='ready'){liveRetry=0;n.shell.dataset.live='connected';if(Array.isArray(event.channels)){workspace.channels=event.channels;renderSidebar()}scheduleSync();return}
+      if(event.type==='access_removed'){liveAccessRemoved=true;if(liveTimer){clearTimeout(liveTimer);liveTimer=null}if(syncTimer){clearTimeout(syncTimer);syncTimer=null}n.shell.dataset.live='revoked';liveSocket?.close();liveSocket=null;richEditor.setEditable(false);n.send.disabled=true;status('Your workspace access was removed.',true);return}
+      if(event.type==='channel_access_removed'){
+        if(workspace?.channels)workspace.channels=workspace.channels.filter((item)=>item.id!==event.channel_id);
+        if(current?.channel?.id===event.channel_id){closePanel();closeComposer();current=null;renderConversation();status('Your access to that channel was removed.');}
+        scheduleSync(true);return;
+      }
+      if(event.type==='message'&&event.message){
+        const message=event.message,selected=current?.channel?.id===message.channel_id;
+        if(selected){
+          if(message.author_id!==workspace.viewer?.account_id)announceIncoming([message],current.channel);
+          if(message.thread_id){if(threadId===message.thread_id&&threadMessages){const index=threadMessages.findIndex((item)=>item.id===message.id||(item.optimistic&&message.client_id&&item.client_id===message.client_id));if(index>=0)threadMessages[index]=message;else threadMessages.push(message);renderPanel()}scheduleSync();return}
+          const wasFollowing=messageScroll().follow;
+          mergeVisibleMessage(message);
+          if(message.author_id!==workspace.viewer?.account_id){
+            if(wasFollowing)queueCurrentRead();
+            else{const channel=workspace.channels?.find((item)=>item.id===message.channel_id);if(channel){channel.unread=(channel.unread||0)+1;renderSidebar()}}
+          }
+        }else{const channel=workspace.channels?.find((item)=>item.id===message.channel_id);if(channel){channel.unread=(channel.unread||0)+1;renderSidebar()}else scheduleSync(true)}
+        return;
+      }
+      if(event.type==='edit'&&event.message?.channel_id===current?.channel?.id){applyEditedMessage(event.message);scheduleSync();return}
+      if(event.type==='delete'&&event.channel_id===current?.channel?.id){applyDeletedMessage(event.message_id);scheduleSync();return}
+      if(event.type==='channels_changed'||event.type==='member'||event.type==='member_removed')scheduleSync(true);
+      else if(event.type==='reaction'&&event.channel_id===current?.channel?.id)scheduleSync();
+      else if((event.type==='board_changed'||event.type==='document_changed')&&panelMode==='work'&&event.channel_id===current?.channel?.id){if(workDetail)openWorkItem(workDetail.kind,workDetail.id);else showWork()}
+    }
+    async function connectLive(){
+      if(!workspace?.workspace?.id||liveAccessRemoved||liveSocket||liveConnecting||liveTimer||document.hidden||navigator.onLine===false)return;
+      liveConnecting=true;
+      try{
+        const {ticket,workspace_id}=await callTool('get_live_ticket');
+        if(liveSocket||document.hidden)return;
+        const socket=new WebSocket(`${(workspace?.origin||'https://await.chat').replace(/^http/,'ws')}/api/workspaces/${encodeURIComponent(workspace_id)}/ws?ticket=${encodeURIComponent(ticket)}`);
+        liveSocket=socket;n.shell.dataset.live='connecting';
+        const handshakeTimer=setTimeout(()=>{if(liveSocket===socket&&n.shell.dataset.live==='connecting')socket.close()},12000);
+        socket.addEventListener('message',(message)=>{try{const event=JSON.parse(message.data);if(event.type==='ready')clearTimeout(handshakeTimer);onLiveEvent(event)}catch{}});
+        socket.addEventListener('close',()=>{clearTimeout(handshakeTimer);if(liveSocket!==socket)return;liveSocket=null;scheduleLiveRetry()});
+        socket.addEventListener('error',()=>socket.close());
+      }catch{scheduleLiveRetry()}
+      finally{liveConnecting=false}
+    }
+    function scheduleLiveRetry(){
+      if(liveAccessRemoved)return;
+      n.shell.dataset.live='disconnected';
+      if(document.hidden||navigator.onLine===false||liveTimer)return;
+      const delay=Math.min(1000*2**Math.min(liveRetry++,5),30000);
+      liveTimer=setTimeout(()=>{liveTimer=null;void connectLive()},Math.round(delay*(.8+Math.random()*.4)));
+    }
+    function resumeLive(){
+      if(document.hidden||liveAccessRemoved)return;
+      if(liveTimer){clearTimeout(liveTimer);liveTimer=null}
+      liveRetry=0;
+      if(liveSocket?.readyState===WebSocket.OPEN) scheduleSync(true);
+      else if(!liveSocket) void connectLive();
+    }
+    document.addEventListener('visibilitychange',resumeLive);
+    window.addEventListener('online',resumeLive);
+    function captureMessageFocus(){
+      const active=document.activeElement,message=active?.closest?.('.message'),button=active?.closest?.('button');
+      if(!message||!button||!message.dataset.messageId)return null;
+      const action=['reply-action','ask-action','add-reaction','edit-action','delete-action','reaction'].find((name)=>button.classList.contains(name))||(button.closest('.reaction-picker')?'add-reaction':null);
+      return action?{messageId:message.dataset.messageId,action,emoji:button.dataset.reactionEmoji,inPanel:n.panel.contains(message)}:null;
+    }
+    function restoreMessageFocus(saved){
+      if(!saved||document.activeElement?.isConnected&&document.activeElement!==document.body)return;
+      const region=saved.inPanel?n.panel:n.messages;
+      const row=[...region.querySelectorAll('.message')].find((item)=>item.dataset.messageId===saved.messageId);
+      const target=saved.action==='reaction'?Array.from(row?.querySelectorAll('.reaction')||[]).find((item)=>item.dataset.reactionEmoji===saved.emoji):row?.querySelector(`.${saved.action}`);
+      target?.focus({preventScroll:true});
+    }
+    async function refreshCurrent(){
+      if(!current?.channel?.id)return refreshWorkspace();
+      const channelId=current.channel.id,position=messageScroll(),focusedControl=captureMessageFocus();
+      const view=await callTool('show_channel',{channel_id:channelId});
+      if(liveAccessRemoved||current?.channel?.id!==channelId)return view;
+      const previousMessages=current.messages||[];
+      current={...view,messages:mergeSnapshotMessages(view.messages,previousMessages),channel:{...current.channel,...view.channel}};
+      renderConversation();restoreMessageScroll(position);reconcileCaughtUpMessages(previousMessages,channelId,position);
+      if(threadId)await refreshThread();
+      restoreMessageFocus(focusedControl);
+      return view;
+    }
+    async function selectChannel(id){if(current?.channel?.id===id){closeSidebar(true);return true}const previousId=current?.channel?.id;if(previousId)drafts.set(previousId,{doc:richEditor.snapshot(),queued});if(readTimer){clearTimeout(readTimer);readTimer=null}postId=null;queued=null;clearUnseenMessages();closePanel();closeSidebar(true);closeComposer();n['channel-name'].textContent='Opening conversation…';n.messages.replaceChildren(element('div','Loading messages…','empty'));try{await refreshWorkspace(id);n.messages.scrollTop=n.messages.scrollHeight;const saved=drafts.get(id);if(saved){richEditor.restore(saved.doc);queued=saved.queued}else richEditor.clear();syncComposer();status('');queueCurrentRead(0);return true}catch(error){status(error.message||'Could not open this conversation.',true);return false}}
+    async function refreshThread(follow=false){if(!threadId||!current?.channel)return;const channelId=current.channel.id,selectedThread=threadId,focusedControl=captureMessageFocus(),messages=await callTool('read_thread',{channel_id:channelId,thread_id:selectedThread});if(current?.channel?.id!==channelId||threadId!==selectedThread)return;threadMessages=mergeSnapshotMessages(messages,threadMessages||[]);renderPanel(follow);restoreMessageFocus(focusedControl)}
+    function searchExcerpt(body,query){
+      const source=String(body||'Attachment'),found=source.toLowerCase().indexOf(query.toLowerCase()),start=found<0?0:Math.max(0,found-55),end=Math.min(source.length,Math.max(start+180,found+query.length+80));
+      const excerpt=`${start?'…':''}${source.slice(start,end)}${end<source.length?'…':''}`,copy=element('span');
+      if(found<0){copy.textContent=excerpt;return copy}
+      const needle=query.toLowerCase(),lower=excerpt.toLowerCase();let cursor=0,index;
+      while((index=lower.indexOf(needle,cursor))!==-1){copy.append(document.createTextNode(excerpt.slice(cursor,index)),element('mark',excerpt.slice(index,index+query.length)));cursor=index+query.length}
+      copy.append(document.createTextNode(excerpt.slice(cursor)));return copy;
+    }
+    function showMessageSearch(query){
+      closeSidebar();closeComposer();saveReplyDraft();panelMode='search';workDetail=null;threadId=null;panelStatus('');openPanelLayout();n.work.setAttribute('aria-pressed','false');n.agents.setAttribute('aria-pressed','false');n['panel-title'].textContent='Search messages';n['panel-back'].hidden=true;n['panel-create'].hidden=true;n['reply-form'].hidden=true;
+      const field=element('input',null,'message-search-field');field.type='search';field.value=query;field.placeholder='Search your messages';field.setAttribute('aria-label','Search messages');const summary=element('div',null,'message-search-summary'),results=element('div');n['panel-content'].replaceChildren(field,summary,results);
+      const search=async()=>{const value=field.value.trim(),sequence=++messageSearchSequence;if(value.length<2){summary.textContent='Enter at least two characters.';results.replaceChildren();return}summary.textContent='Searching…';results.replaceChildren();try{const matches=await callTool('search_messages',{query:value});if(panelMode!=='search'||sequence!==messageSearchSequence)return;summary.textContent=matches.length?`${matches.length===50?'Showing 50':matches.length} recent ${matches.length===1?'result':'results'}`:'No messages found.';for(const message of matches){const button=element('button',null,'message-search-result');button.type='button';const channel=workspace?.channels?.find((item)=>item.id===message.channel_id),label=channel?.is_dm?channel.name:`#${message.channel_name||channel?.name||'channel'}`;button.append(element('strong',label),searchExcerpt(message.body,value),element('small',`${message.author?.name||'Former member'} · ${new Date(Number(message.created_at)).toLocaleDateString()}`));button.addEventListener('click',async()=>{button.disabled=true;const opened=await selectChannel(message.channel_id);if(opened)await openThread(message.thread_id||message.id,false,message.id)});results.append(button)}}catch(error){if(panelMode==='search'&&sequence===messageSearchSequence){summary.textContent=error.message||'Search unavailable.';results.replaceChildren()}}};
+      field.addEventListener('input',()=>{if(messageSearchTimer)clearTimeout(messageSearchTimer);messageSearchTimer=setTimeout(search,240)});field.addEventListener('keydown',(event)=>{if(event.key==='Enter'){event.preventDefault();if(messageSearchTimer)clearTimeout(messageSearchTimer);search()}});field.focus();search();
+    }
+    async function openThread(id,focusReply=true,highlightId=null){closeComposer();saveReplyDraft();if(threadId!==id)threadMessages=null;threadId=id;panelMode='thread';workDetail=null;panelStatus('');openPanelLayout();n.work.setAttribute('aria-pressed','false');n.agents.setAttribute('aria-pressed','false');n['panel-title'].textContent='Thread';n['panel-back'].hidden=true;n['panel-create'].hidden=true;n['panel-content'].replaceChildren(element('div','Loading replies…','empty'));n['reply-form'].hidden=false;replyStatus('');const saved=replyDrafts.get(id);if(saved)replyEditor.restore(saved);else replyEditor.clear();syncReply();try{await refreshThread(true);if(highlightId){const hit=[...n['panel-content'].querySelectorAll('.message')].find((row)=>row.dataset.messageId===highlightId);if(hit){hit.classList.add('search-hit');hit.scrollIntoView({block:'center'})}}if(focusReply)replyEditor.focus()}catch(error){n['panel-content'].replaceChildren(element('div',error.message||'Could not open thread.','empty'))}}
+    function renderPanel(follow=false){
+      if(panelMode!=='thread')return;
+      const content=n['panel-content'],top=content.scrollTop,nearBottom=content.scrollHeight-top-content.clientHeight<64;
+      content.replaceChildren();
+      if(!threadMessages?.length){content.append(element('div','This thread has no messages.','empty'));return}
+      const root=threadMessages.find((message)=>message.id===threadId),replies=threadMessages.filter((message)=>message.id!==threadId);
+      if(root){const row=messageRow(root,true);row.classList.add('thread-root');content.append(row)}
+      if(replies.length){const count=Math.max(Number(root?.reply_count)||0,replies.length),label=`${count} ${count===1?'reply':'replies'}${count>replies.length?` · latest ${replies.length} shown`:''}`;content.append(element('div',label,'thread-reply-count'));for(const message of replies)content.append(messageRow(message,true))}
+      else if(root)content.append(element('div','No replies yet.','thread-empty'));
+      content.scrollTop=follow||nearBottom?content.scrollHeight:top;
+    }
+    const canEditWork=()=>workspace?.permissions?.includes('post')!==false;
+    function actionButton(label,action){const button=element('button',label);button.type='button';button.addEventListener('click',action);return button}
+    async function showDetails(){
+      const channel=current?.channel;
+      if(!channel)return;
+      closeSidebar();closeComposer();saveReplyDraft();panelMode='details';workDetail=null;threadId=null;panelStatus('');openPanelLayout();
+      n.work.setAttribute('aria-pressed','false');n.agents.setAttribute('aria-pressed','false');
+      n['panel-title'].textContent=channel.is_dm?'Conversation details':`#${channel.name}`;
+      n['panel-back'].hidden=true;n['panel-create'].hidden=true;n['reply-form'].hidden=true;
+      const content=n['panel-content'];content.replaceChildren(element('div','Loading details…','empty'));
+      try{
+        const members=await callTool('list_members',{channel_id:channel.id});
+        if(!Array.isArray(members))throw new Error('Could not load members.');
+        if(panelMode!=='details'||current?.channel?.id!==channel.id)return;
+        current.members=members;
+        content.replaceChildren();
+        if(channel.description)content.append(element('p',channel.description,'details-intro'));
+        const notifications=element('section',null,'details-section');
+        notifications.append(element('h3','Notifications'));
+        const select=element('select',null,'details-select');
+        select.setAttribute('aria-label',`Notifications for ${channel.is_dm?channel.name:`#${channel.name}`}`);
+        for(const [value,label] of [['all','All messages'],['mentions','Mentions only'],['none','None']]){const option=element('option',label);option.value=value;select.append(option)}
+        select.value=channel.notify||'mentions';
+        select.disabled=!canEditWork();
+        select.addEventListener('change',async()=>{
+          const prior=channel.notify||'mentions',next=select.value;
+          select.disabled=true;
+          try{
+            await callTool('set_channel_notifications',{channel_id:channel.id,notify:next});
+            channel.notify=next;
+            const listed=workspace?.channels?.find((item)=>item.id===channel.id);if(listed)listed.notify=next;
+            panelStatus('Notification setting saved.');
+          }catch(error){select.value=prior;panelStatus(error.message||'Could not save notification setting.',true)}
+          finally{select.disabled=!canEditWork()}
+        });
+        notifications.append(select);content.append(notifications);
+        const people=element('section',null,'details-section');
+        people.append(element('h3',`Members · ${members.length}`));
+        const viewer=workspace.viewer,canManage=viewer?.kind==='human'&&canEditWork();
+        for(const person of members){
+          const row=element('div',null,'details-member');row.append(avatar(person),element('strong',`${person.name}${person.account_id===viewer?.account_id?' (you)':''}`));
+          if(person.kind==='agent')row.append(element('span','Agent','agent-tag'));
+          if(canManage&&!channel.is_dm&&channel.name!=='general'&&person.account_id!==viewer.account_id&&(viewer.role!=='member'||channel.created_by===viewer.account_id||workspace.members.some(creator=>creator.account_id===channel.created_by&&creator.kind==='agent'&&creator.owner_id===viewer.account_id)||(person.kind==='agent'&&person.owner_id===viewer.account_id))){
+            const remove=actionButton('Remove',()=>openModal('remove-channel-member',person));remove.className='details-remove';remove.setAttribute('aria-label',`Remove ${person.name} from #${channel.name}`);row.append(remove);
+          }
+          people.append(row);
+        }
+        const available=canManage&&!channel.is_dm?(workspace.members||[]).filter((person)=>person.kind==='human'&&!members.some((member)=>member.account_id===person.account_id)):[];
+        if(available.length){const add=actionButton('Add teammate',()=>openModal('add-channel-member'));add.className='details-action details-add';people.append(add)}
+        content.append(people);
+        if(!channel.is_dm&&channel.name!=='general'&&canEditWork()){
+          const manage=element('section',null,'details-section');
+          manage.append(element('h3','Channel'));
+          const actions=element('div',null,'details-manage-actions');
+          const rename=actionButton('Rename',()=>openModal('rename-channel',{name:channel.name}));rename.className='details-action';actions.append(rename);
+          const leave=actionButton('Leave',()=>openModal('leave-channel',{name:channel.name}));leave.className='details-action';actions.append(leave);
+          const archive=actionButton('Archive',()=>openModal('archive-channel',{name:channel.name}));archive.className='details-action danger';actions.append(archive);
+          manage.append(actions);content.append(manage);
+        }
+      }catch(error){if(panelMode==='details'&&current?.channel?.id===channel.id)content.replaceChildren(element('div',error.message||'Could not load details.','empty'))}
+    }
+    function showAgents(){
+      if(!workspace)return;
+      closeSidebar();closeComposer();saveReplyDraft();panelMode='agents';workDetail=null;threadId=null;panelStatus('');openPanelLayout();n.work.setAttribute('aria-pressed','false');n.agents.setAttribute('aria-pressed','true');
+      n['panel-title'].textContent='Agent teammates';n['panel-back'].hidden=true;n['reply-form'].hidden=true;
+      const canPost=workspace?.permissions?.includes('post')!==false,canCreate=canPost&&workspace?.permissions?.includes('files')!==false;
+      const agents=(workspace?.members||[]).filter((member)=>member.kind==='agent');
+      n['panel-create'].hidden=!canCreate||Boolean(createdAgent)||!agents.length;n['panel-create'].textContent='New agent';
+      const content=n['panel-content'];content.replaceChildren();
+      if(agents.length)content.append(element('p','Each agent has its own identity and channel access.','agent-panel-intro'));
+      if(createdAgent){
+        const connect=element('section',null,'agent-connect');connect.append(element('strong',`${createdAgent.rotated?'Reconnect':'Connect'} ${createdAgent.name}`),element('p',createdAgent.rotated?'The old token has stopped working. Copy this replacement now and update the agent client. It is only available in this session.':'Copy this token now. It is only available in this session. Use it with the MCP address in your agent client.'));
+        for(const [label,value] of [['MCP address',createdAgent.mcp_url],['Agent token',createdAgent.token]]){
+          const field=element('div',null,'agent-connect-copy'),line=element('div'),code=element('code',value),copy=actionButton('Copy',async()=>{try{await navigator.clipboard.writeText(value);copy.textContent='Copied'}catch{panelStatus('Could not copy automatically. Select the value to copy it.',true)}});field.append(element('span',label));line.append(code,copy);field.append(line);connect.append(field);
+          copy.setAttribute('aria-label',`Copy ${label.toLowerCase()}`);
+        }
+        const done=actionButton('I saved the token',()=>{createdAgent=null;showAgents();(n['panel-create'].hidden?content.querySelector('.agent-panel-empty button'):n['panel-create'])?.focus()});done.className='agent-connect-done';connect.append(done);content.append(connect);
+      }
+      if(!agents.length){if(createdAgent)return;const empty=element('div',null,'agent-panel-empty');empty.append(document.createTextNode(canCreate?'Give an agent its own identity and channel access.':'No agent teammates in this workspace yet.'));if(canCreate)empty.append(actionButton('Create an agent',()=>openModal('agent')));content.append(empty);return}
+      for(const agent of agents){
+        const card=element('section',null,'agent-panel-card'),person=element('div',null,'agent-panel-person'),state=element('span',agent.paused?'Paused':'Active','agent-panel-state');person.append(avatar(agent),element('strong',agent.name),state);card.append(person);
+        if(agent.description)card.append(element('p',agent.description));
+        if(canPost){
+          const actions=element('div',null,'agent-panel-actions'),joined=current?.members?.some((member)=>member.account_id===agent.account_id),channel=current?.channel;
+          const viewer=workspace?.viewer,mayAdd=viewer?.role!=='member'||agent.owner_id===viewer?.account_id;
+          if(channel&&!channel.is_dm&&!joined&&mayAdd)actions.append(actionButton(`Add to #${channel.name}`,async()=>{try{await callTool('add_agent_to_channel',{agent_id:agent.account_id,channel_id:channel.id});await refreshWorkspace(channel.id);panelStatus(`${agent.name} joined #${channel.name}.`)}catch(error){panelStatus(error.message||'Could not add agent.',true)}}));
+          const pause=actionButton(agent.paused?'Resume':'Pause',async()=>{try{const updated=await callTool('pause_agent',{agent_id:agent.account_id,paused:!agent.paused});const index=workspace.members.findIndex((member)=>member.account_id===agent.account_id);if(index>=0)workspace.members[index]={...workspace.members[index],...updated};showAgents();panelStatus(`${agent.name} ${agent.paused?'resumed':'paused'}.`)}catch(error){panelStatus(error.message||'Could not change agent status.',true)}});pause.setAttribute('aria-label',`${agent.paused?'Resume':'Pause'} ${agent.name}`);actions.append(pause);
+          if(mayAdd&&!createdAgent){const rotate=actionButton('Rotate key',()=>openModal('rotate-agent',agent));rotate.setAttribute('aria-label',`Rotate ${agent.name}'s key`);actions.append(rotate)}
+          if(actions.childElementCount)card.append(actions);
+        }
+        content.append(card);
+      }
+    }
+    async function showWork(){
+      closeSidebar();closeComposer();saveReplyDraft();
+      const channelId=current?.channel?.id;if(!channelId)return;
+      panelMode='work';workDetail=null;threadId=null;panelStatus('');openPanelLayout();n.work.setAttribute('aria-pressed','true');n.agents.setAttribute('aria-pressed','false');
+      n['panel-title'].textContent='Work';n['panel-back'].hidden=true;n['panel-create'].hidden=true;n['reply-form'].hidden=true;
+      n['panel-content'].replaceChildren(element('div','Loading shared work…','empty'));
+      try{
+        const [boards,documents]=await Promise.all([callTool('list_boards',{channel_id:channelId}),callTool('list_documents',{channel_id:channelId})]);
+        if(!Array.isArray(boards)||!Array.isArray(documents))throw new Error('Could not load shared work.');
+        if(panelMode!=='work'||current?.channel?.id!==channelId||workDetail)return;
+        n['panel-content'].replaceChildren();
+        for(const [label,items,kind] of [['Task boards',boards,'board'],['Documents',documents,'document']]){
+          const group=element('section',null,'work-group'),head=element('div',null,'work-group-head'),heading=element('h3',label);
+          head.append(heading);group.append(head);
+          if(!items?.length){
+            if(canEditWork()){
+              const empty=element('button',null,'work-empty work-empty-action');empty.type='button';empty.append(element('strong',kind==='board'?'+ New task board':'+ New document'),element('span',kind==='board'?'Track the next steps in this channel.':'Keep notes and decisions beside the conversation.'));empty.addEventListener('click',()=>openModal(kind));group.append(empty);
+            }else group.append(element('div',kind==='board'?'No task boards in this channel yet.':'No documents in this channel yet.','work-empty'));
+          }
+          for(const item of items||[]){const button=element('button',null,'work-item');button.type='button';const icon=workIcon(kind,'work-item-icon'),arrow=element('span','›','work-item-arrow');arrow.setAttribute('aria-hidden','true');button.append(icon,element('strong',item.name||item.title||'Untitled'),arrow);button.addEventListener('click',()=>openWorkItem(kind,item.id));group.append(button)}
+          if(canEditWork()&&items?.length){const actions=element('div',null,'work-actions');actions.append(actionButton(kind==='board'?'+ New board':'+ New document',()=>openModal(kind)));group.append(actions)}
+          n['panel-content'].append(group);
+        }
+      }catch(error){if(panelMode==='work'&&!workDetail)n['panel-content'].replaceChildren(element('div',error.message||'Could not load shared work.','empty'))}
+    }
+    async function openWorkItem(kind,id,linkedTaskId=null){
+      saveReplyDraft();
+      panelMode='work';threadId=null;openPanelLayout();n.work.setAttribute('aria-pressed','true');n.agents.setAttribute('aria-pressed','false');n['reply-form'].hidden=true;
+      workDetail={kind,id};panelStatus('');n['panel-back'].hidden=false;n['panel-create'].hidden=!canEditWork();n['panel-create'].textContent=kind==='board'?'New task':'Edit';
+      n['panel-title'].textContent=kind==='board'?'Task board':'Document';n['panel-content'].replaceChildren(element('div','Loading shared work…','empty'));
+      try{
+        const data=await callTool(kind==='board'?'read_board':'read_document',{[kind==='board'?'board_id':'document_id']:id});
+        if(panelMode!=='work'||workDetail?.id!==id)return;
+        const item=kind==='board'?(data?.board||data):(data?.document||data),title=item?.name||item?.title||'Untitled';
+        workDetail={kind,id,item};n['panel-title'].textContent=title;n['panel-content'].replaceChildren();
+        const actions=element('div',null,'work-actions');
+        actions.append(actionButton('Share in chat',async()=>{try{const result=await callTool('share_work',{kind,item_id:id,channel_id:current.channel.id});panelStatus(result?.pending?'Sent for owner review.':'Shared in this conversation.');if(!result?.pending)await refreshCurrent()}catch(error){panelStatus(error.message||'Could not share this item.',true)}}));
+        if(modelContextSupported)actions.append(actionButton('Ask assistant',async()=>{try{await attachToHost(`${kind==='board'?'Board':'Document'}: ${title}`,[`Await workspace ID: ${workspace.workspace.id}`,`Channel ID: ${current.channel.id}`,`${kind==='board'?'Board':'Document'} ID: ${id}`,`Title: ${title}`,'Use the connected Await tools to read or change this item when asked.'],panelStatus)}catch(error){panelStatus(error.message||'Could not add this item to your chat.',true)}}));
+        n['panel-content'].append(actions);
+        if(kind==='document'){
+          const body=item?.body||'';n['panel-content'].append(element('div',body||'This document is empty. ',`document-body${body?'':' is-empty'}`));
+        }else{
+          const tasks=data?.tasks||[];n['panel-content'].append(element('p',`${tasks.length} ${tasks.length===1?'task':'tasks'} in this board`,'work-detail-copy'));
+          if(!tasks.length)n['panel-content'].append(element('div','Add a task to make the next step visible to your team.','work-empty'));
+          let linkedRow=null;
+          for(const task of tasks){
+            const row=element('article',null,'task-row'),head=element('div',null,'task-row-head'),actions=element('div',null,'task-row-actions');
+            if(task.id===linkedTaskId){row.classList.add('is-linked');linkedRow=row}
+            head.append(element('strong',task.title||'Untitled task'));
+            if(canEditWork()){const edit=actionButton('Edit',()=>openModal('edit-task',task));edit.setAttribute('aria-label',`Edit ${task.title||'task'}`);actions.append(edit)}
+            const share=actionButton('Share',async()=>{try{const result=await callTool('share_work',{kind:'task',item_id:task.id,channel_id:current.channel.id});panelStatus(result?.pending?'Sent for owner review.':'Task shared in this conversation.');if(!result?.pending)await refreshCurrent()}catch(error){panelStatus(error.message||'Could not share this task.',true)}});share.setAttribute('aria-label',`Share ${task.title||'task'} in chat`);actions.append(share);
+            head.append(actions);row.append(head);
+            if(task.description)row.append(element('p',task.description));
+            const assignee=(workspace?.members||[]).find((member)=>member.account_id===task.assignee_id),meta=element('div',null,'task-row-meta');
+            if(task.priority&&task.priority!==2)meta.append(element('span',task.priority===3?'High priority':'Low priority'));
+            if(assignee)meta.append(element('span',assignee.name));
+            if(task.due_at)meta.append(element('span',new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric'}).format(task.due_at)));
+            if(meta.childNodes.length)row.append(meta);
+            const select=element('select');select.setAttribute('aria-label',`Status for ${task.title||'task'}`);select.disabled=!canEditWork();
+            for(const [value,label] of [['todo','To do'],['doing','In progress'],['blocked','Blocked'],['review','Review'],['done','Done']]){const option=element('option',label);option.value=value;select.append(option)}
+            select.value=task.status||'todo';select.addEventListener('change',async()=>{const next=select.value;select.disabled=true;try{await callTool('update_task',{task_id:task.id,status:next});panelStatus('Task updated.')}catch(error){select.value=task.status||'todo';panelStatus(error.message||'Could not update task.',true)}finally{select.disabled=!canEditWork()}});
+            row.append(select);n['panel-content'].append(row);
+          }
+          if(linkedRow){const container=n['panel-content'],rowRect=linkedRow.getBoundingClientRect(),containerRect=container.getBoundingClientRect();container.scrollTop+=rowRect.top-containerRect.top-(container.clientHeight-rowRect.height)/2}
+        }
+      }catch(error){if(workDetail?.id===id)n['panel-content'].replaceChildren(element('div',error.message||'Could not open item.','empty'))}
+    }
+    function modalField(name,label,value='',multiline=false){const id=`modal-field-${name}`,caption=element('label',label),input=element(multiline?'textarea':'input');caption.htmlFor=id;input.id=id;input.name=name;input.value=value;input.required=name!=='body'&&name!=='description';if(!multiline)input.maxLength=120;return [caption,input]}
+    function modalSelect(name,label,choices,value){const id=`modal-field-${name}`,caption=element('label',label),select=element('select');caption.htmlFor=id;select.id=id;select.name=name;for(const [optionValue,optionLabel] of choices){const option=element('option',optionLabel);option.value=String(optionValue);select.append(option)}select.value=String(value??'');return [caption,select]}
+    function closeModal(restoreFocus=true){if(n.modal.hidden)return;n.modal.hidden=true;modalStatus('');n.shell.inert=false;const target=modalReturnFocus?.isConnected&&(!n.sidebar.contains(modalReturnFocus)||sidebarDocked.matches)?modalReturnFocus:(panelMode?n.work:sidebarDocked.matches?n.search:n.menu);modalReturnFocus=null;if(restoreFocus)target?.focus()}
+    function openModal(mode,data={}){
+      closePopovers();modalReturnFocus=document.activeElement;modalStatus('');n.modal.hidden=false;n['modal-form'].dataset.mode=mode;n['modal-form'].dataset.taskId=mode==='edit-task'?data.id||'':'';n['modal-form'].dataset.agentId=mode==='rotate-agent'?data.account_id||'':'';n['modal-form'].dataset.memberId=mode==='remove-channel-member'?data.account_id||'':'';n['modal-form'].dataset.messageId=['edit-message','delete-message'].includes(mode)?data.id||'':'';n['modal-form'].dataset.channelId=['edit-message','delete-message'].includes(mode)?data.channel_id||'':'';n['modal-fields'].replaceChildren();
+      const headings={channel:'Create channel','rename-channel':'Rename channel','leave-channel':'Leave channel','archive-channel':'Archive channel','add-channel-member':'Add teammate','remove-channel-member':'Remove member',dm:'Start direct message',agent:'New agent','rotate-agent':'Rotate agent key',board:'New task board',document:'New document',task:'New task','edit-task':'Edit task','edit-document':'Edit document','edit-message':'Edit message','delete-message':'Delete message'};
+      n['modal-title'].textContent=headings[mode]||'Create';n['modal-submit'].textContent=mode==='dm'?'Start message':mode==='rotate-agent'?'Rotate key':mode==='rename-channel'?'Rename':mode==='leave-channel'?'Leave channel':mode==='archive-channel'?'Archive channel':mode==='add-channel-member'?'Add teammate':mode==='remove-channel-member'?'Remove':mode==='delete-message'?'Delete message':mode.startsWith('edit-')?'Save changes':'Create';n['modal-submit'].classList.toggle('danger',mode==='delete-message');
+      if(mode==='channel'){n['modal-fields'].append(...modalField('name','Channel name',data.name||''));const privacy=element('label');const box=element('input');box.type='checkbox';box.name='private';privacy.append(box,document.createTextNode(' Private channel'));n['modal-fields'].append(privacy)}
+      else if(mode==='rename-channel')n['modal-fields'].append(...modalField('name','Channel name',data.name||''));
+      else if(mode==='leave-channel')n['modal-fields'].append(element('p',`You will leave #${data.name}. You can join again if it is public; a teammate must add you back if it is private.`,'modal-warning'));
+      else if(mode==='archive-channel')n['modal-fields'].append(element('p',`#${data.name} will disappear from every member's active conversations. Its messages and files will no longer be available in Await.`, 'modal-warning'));
+      else if(mode==='add-channel-member'){const available=(workspace?.members||[]).filter((person)=>person.kind==='human'&&!current?.members?.some((member)=>member.account_id===person.account_id));n['modal-fields'].append(element('p',`They will be able to read #${current?.channel?.name||'this channel'} and its files.`,'modal-warning'),...modalSelect('account_id','Teammate',[['','Choose teammate'],...available.map((person)=>[person.account_id,person.name])],''));n['modal-form'].elements.namedItem('account_id').required=true}
+      else if(mode==='remove-channel-member')n['modal-fields'].append(element('p',`${data.name} will lose access to this channel's messages and files.`, 'modal-warning'));
+      else if(mode==='edit-message'){const [label,input]=modalField('body','Message',data.body||'',true);input.required=true;input.maxLength=12000;n['modal-fields'].append(label,input)}
+      else if(mode==='delete-message')n['modal-fields'].append(element('p',data.attachments?.length?'This message and its attached files will be removed for everyone in the conversation.':'This message will be removed for everyone in the conversation.','modal-warning'));
+      else if(mode==='agent'){n['modal-fields'].append(...modalField('name','Agent name'),...modalField('description','What does this agent do? (optional)'));if(current?.channel&&!current.channel.is_dm){const channelLabel=element('label'),box=element('input');box.type='checkbox';box.name='add_channel';box.checked=true;channelLabel.append(box,document.createTextNode(` Add to #${current.channel.name}`));n['modal-fields'].append(channelLabel)}}
+      else if(mode==='rotate-agent')n['modal-fields'].append(element('p',`The current key for ${data.name} will stop working immediately. You will need to connect that agent again with its replacement key.`, 'modal-warning'));
+      else if(mode==='dm'){const label=element('label','Teammate');label.htmlFor='other-id';const select=element('select');select.id='other-id';select.name='other_id';for(const person of workspace?.members||[]){if(person.account_id===workspace?.viewer?.account_id)continue;const option=element('option',`${person.name}${person.kind==='agent'?' · Agent':''}`);option.value=person.account_id;select.append(option)}n['modal-fields'].append(label,select)}
+      else if(mode==='board')n['modal-fields'].append(...modalField('name','Board name'));
+      else if(mode==='task'||mode==='edit-task'){
+        n['modal-fields'].append(...modalField('title','Task title',data.title||''),...modalField('description','Description (optional)',data.description||'',true));
+        n['modal-fields'].append(...modalSelect('status','Status',[['todo','To do'],['doing','In progress'],['blocked','Blocked'],['review','Review'],['done','Done']],data.status||'todo'));
+        n['modal-fields'].append(...modalSelect('priority','Priority',[[1,'Low'],[2,'Normal'],[3,'High']],data.priority||2));
+        n['modal-fields'].append(...modalSelect('assignee_id','Assignee',[['','Unassigned'],...(workspace?.members||[]).map((member)=>[member.account_id,`${member.name}${member.kind==='agent'?' · Agent':''}`])],data.assignee_id||''));
+        const [dueLabel,dueInput]=modalField('due_at','Due date',data.due_at?new Date(data.due_at).toISOString().slice(0,10):'');dueInput.type='date';dueInput.required=false;n['modal-fields'].append(dueLabel,dueInput);
+      }
+      else n['modal-fields'].append(...modalField('title','Document title',data.title||''),...modalField('body','Content',data.body||'',true));
+      n.shell.inert=true;(n['modal-fields'].querySelector('input,select,textarea')||n['modal-submit']).focus();
+    }
+    function suggestionQuery(){return richEditor.currentSuggestion()}
+    function suggestionButton(item,id,onClick){
+      const button=element('button',null,'mention-option');button.id=id;button.type='button';button.setAttribute('role','option');
+      button.setAttribute('aria-label',`Mention ${item.kind==='channel'?'#':''}${item.label}`);
+      const icon=item.kind==='mention'?avatar(item.person):element('span','#','small-avatar');icon.setAttribute('aria-hidden','true');
+      button.append(icon,element('span',item.label,'mention-name'));
+      if(item.person?.kind==='agent')button.append(element('span','Agent','agent-tag'));
+      button.addEventListener('click',onClick);return button;
+    }
+    function highlightSuggestion(){for(const [index,button] of [...n.mentions.children].entries())button.setAttribute('aria-selected',String(index===suggestionIndex));richEditor.dom.setAttribute('aria-activedescendant',`suggestion-option-${suggestionIndex}`)}
+    function renderSuggestions(){const active=suggestionQuery();suggestionMatches=active?(active.kind==='mention'?(current?.members||[]).filter((person)=>person.account_id!==workspace?.viewer?.account_id&&person.name.toLowerCase().includes(active.query)).map((person)=>({id:person.account_id,label:person.name,kind:'mention',person})):(workspace?.channels||[]).filter((channel)=>channel.joined&&!channel.is_dm&&!channel.archived_at&&channel.name.toLowerCase().includes(active.query)).map((channel)=>({id:channel.id,label:channel.name,kind:'channel'}))).slice(0,7):[];n.mentions.replaceChildren();suggestionIndex=0;if(!suggestionMatches.length){n.mentions.hidden=true;richEditor.dom.setAttribute('aria-expanded','false');richEditor.dom.removeAttribute('aria-activedescendant');return}n.mentions.setAttribute('aria-label',active.kind==='channel'?'Mention a channel':'Mention a teammate');for(const [index,item] of suggestionMatches.entries())n.mentions.append(suggestionButton(item,`suggestion-option-${index}`,()=>insertSuggestion(index)));highlightSuggestion();n.mentions.hidden=false;richEditor.dom.setAttribute('aria-expanded','true')}
+    function insertSuggestion(index){const item=suggestionMatches[index];if(!suggestionQuery()||!item)return;richEditor.insertSuggestion(item);n.mentions.hidden=true;richEditor.dom.setAttribute('aria-expanded','false');richEditor.dom.removeAttribute('aria-activedescendant');syncComposer()}
+    function renderReplySuggestions(){const active=replyEditor.currentSuggestion();replySuggestions=active?(active.kind==='mention'?(current?.members||[]).filter((person)=>person.account_id!==workspace?.viewer?.account_id&&person.name.toLowerCase().includes(active.query)).map((person)=>({id:person.account_id,label:person.name,kind:'mention',person})):(workspace?.channels||[]).filter((channel)=>channel.joined&&!channel.is_dm&&!channel.archived_at&&channel.name.toLowerCase().includes(active.query)).map((channel)=>({id:channel.id,label:channel.name,kind:'channel'}))).slice(0,7):[];n['reply-mentions'].replaceChildren();replySuggestionIndex=0;if(!replySuggestions.length){n['reply-mentions'].hidden=true;replyEditor.dom.setAttribute('aria-expanded','false');replyEditor.dom.removeAttribute('aria-activedescendant');return}n['reply-mentions'].setAttribute('aria-label',active.kind==='channel'?'Mention a channel in reply':'Mention a teammate in reply');for(const [index,item] of replySuggestions.entries())n['reply-mentions'].append(suggestionButton(item,`reply-suggestion-${index}`,()=>insertReplySuggestion(index)));highlightReplySuggestion();n['reply-mentions'].hidden=false;replyEditor.dom.setAttribute('aria-expanded','true')}
+    function highlightReplySuggestion(){for(const [index,button] of [...n['reply-mentions'].children].entries())button.setAttribute('aria-selected',String(index===replySuggestionIndex));replyEditor.dom.setAttribute('aria-activedescendant',`reply-suggestion-${replySuggestionIndex}`)}
+    function insertReplySuggestion(index){const item=replySuggestions[index];if(!replyEditor.currentSuggestion()||!item)return;replyEditor.insertSuggestion(item);n['reply-mentions'].hidden=true;replyEditor.dom.setAttribute('aria-expanded','false');replyEditor.dom.removeAttribute('aria-activedescendant');syncReply()}
+    function applyFormat(mark){richEditor.format(mark);postId=null;syncComposer()}
+    const emoji=['😀','😂','🥹','😍','👍','👏','🙌','🙏','❤️','💜','🔥','🎉','✅','👀','💡','🚀','🤝','💬','⭐','💯','🙂','😅','🤔','👋'];
+    for(const value of emoji){const button=element('button',value);button.type='button';button.title=value;button.addEventListener('click',()=>{richEditor.insertText(value);closePopovers();postId=null;syncComposer()});n.emoji.append(button)}
+    for(const value of emoji){const button=element('button',value);button.type='button';button.title=value;button.addEventListener('click',()=>{replyEditor.insertText(value);closeReplyPopovers();replyPostId=null;syncReply()});n['reply-emoji'].append(button)}
+    function chooseItem(kind,item){clearQueued();queued={kind,item};closePopovers();postId=null;syncComposer();richEditor.focus();if(kind==='library'&&/^image\/(?:png|jpeg|gif|webp|avif)$/.test(item.mime||'')&&item.size<=2*1024*1024)callTool('get_file',{attachment_id:item.id}).then((data)=>{if(queued?.item===item&&data?.content_base64&&/^image\/(?:png|jpeg|gif|webp|avif)$/.test(data.mime)){queued.previewUrl=`data:${data.mime};base64,${data.content_base64}`;renderedQueued=null;renderQueued()}}).catch((error)=>{if(queued?.item===item)status(error.message||'Could not load image preview.',true)})}
+    function chooseFile(file){if(!file)return;if(file.size>25*1024*1024){status('Files must be 25 MB or smaller.',true);return}clearQueued();queued={kind:'file',file,previewUrl:['image/png','image/jpeg','image/gif','image/webp','image/avif'].includes(file.type)?URL.createObjectURL(file):null};closePopovers();postId=null;syncComposer();richEditor.focus()}
+    async function loadPicker(){
+      const kind=pickerKind,sequence=++pickerSequence,query=n['picker-search'].value.trim();
+      n['picker-results'].replaceChildren(element('div',kind==='gif'?'Finding GIFs…':'Finding files…','empty'));
+      try{
+        const items=await callTool(kind==='gif'?'search_gifs':'list_files',{query});
+        if(sequence!==pickerSequence||kind!==pickerKind||n.picker.hidden)return;
+        n['picker-results'].replaceChildren();
+        if(!Array.isArray(items)||!items.length){n['picker-results'].append(element('div',kind==='gif'?'No GIFs found.':'No shared files found.','empty'));return}
+        n['picker-results'].className=kind==='gif'?'gif-grid':'picker-list';
+        for(const item of items){
+          const button=element('button');button.type='button';
+          if(kind==='gif'){
+            if(!/^https:\/\/(?:media\d*|i)\.giphy\.com\//i.test(item.preview||''))continue;
+            const image=element('img');image.src=item.preview;image.alt=item.title||'GIF';image.loading='lazy';button.title=item.title||'Choose GIF';button.append(image);
+          }else{button.append(workIcon('document','file-picker-icon'));const details=element('span');details.append(element('span',item.filename||'File'),element('small',item.channel_name?`#${item.channel_name}`:''));button.append(details)}
+          button.addEventListener('click',()=>chooseItem(kind==='gif'?'gif':'library',item));n['picker-results'].append(button);
+        }
+      }catch(error){if(sequence===pickerSequence&&!n.picker.hidden)n['picker-results'].replaceChildren(element('div',error.message||'Could not load items.','empty'))}
+    }
+    function openPicker(kind){closePopovers();pickerKind=kind;n['picker-title'].textContent=kind==='gif'?'GIFs':'Shared files';n['picker-credit'].hidden=kind!=='gif';n['picker-search'].placeholder=kind==='gif'?'Search GIFs':'Search files';n['picker-search'].value='';n.picker.hidden=false;n['picker-search'].focus();loadPicker()}
+    async function fileBase64(file){const bytes=new Uint8Array(await file.arrayBuffer());let binary='';for(let offset=0;offset<bytes.length;offset+=8192)binary+=String.fromCharCode(...bytes.subarray(offset,offset+8192));return btoa(binary)}
+    richEditor=window.AwaitRichEditor(n.draft,{
+      onChange:()=>{postId=null;status('');renderSuggestions();syncComposer()},
+      onEnter:()=>{if(!n.mentions.hidden&&suggestionMatches.length)insertSuggestion(suggestionIndex);else n.compose.requestSubmit()},
+      onMentionKey:(key)=>{
+        if(n.mentions.hidden||!suggestionMatches.length)return false;
+        if(key==='ArrowDown')suggestionIndex=(suggestionIndex+1)%suggestionMatches.length;
+        else if(key==='ArrowUp')suggestionIndex=(suggestionIndex+suggestionMatches.length-1)%suggestionMatches.length;
+        else if(key==='Tab'){insertSuggestion(suggestionIndex);return true}
+        else if(key==='Escape'){n.mentions.hidden=true;richEditor.dom.setAttribute('aria-expanded','false');richEditor.dom.removeAttribute('aria-activedescendant');return true}
+        highlightSuggestion();return true;
+      },
+    });
+    replyEditor=window.AwaitRichEditor(n['reply-draft'],{
+      suggestionsId:'reply-mentions',
+      onChange:()=>{replyPostId=null;replyStatus('');renderReplySuggestions();syncReply()},
+      onEnter:()=>{if(!n['reply-mentions'].hidden&&replySuggestions.length)insertReplySuggestion(replySuggestionIndex);else n['reply-form'].requestSubmit()},
+      onMentionKey:(key)=>{
+        if(n['reply-mentions'].hidden||!replySuggestions.length)return false;
+        if(key==='ArrowDown')replySuggestionIndex=(replySuggestionIndex+1)%replySuggestions.length;
+        else if(key==='ArrowUp')replySuggestionIndex=(replySuggestionIndex+replySuggestions.length-1)%replySuggestions.length;
+        else if(key==='Tab'){insertReplySuggestion(replySuggestionIndex);return true}
+        else if(key==='Escape'){closeReplyPopovers();return true}
+        highlightReplySuggestion();return true;
+      },
+    });
+    richEditor.setEditable(false);
+    replyEditor.setEditable(false);
+    replyEditor.setLabel('Reply in thread');
+    syncComposer();
+    syncReply();
+    window.addEventListener('message',(event)=>{if(event.source!==window.parent||event.data?.jsonrpc!=='2.0')return;const message=event.data;if(typeof message.id==='number'&&pending.has(message.id)){const item=pending.get(message.id);pending.delete(message.id);message.error?item.reject(new Error(message.error.message||'Host request failed.')):item.resolve(message.result)}else if(message.method==='ui/notifications/tool-result')receive(message.params);else if(message.method==='ui/notifications/host-context-changed'){applyHostContext(message.params);if(message.params?.['openai/modelContext']===null&&n.status.textContent.includes('added to your chat'))status('')}});
+    const ready=request('ui/initialize',{appInfo:{name:'await-workspace',version:'1.0.0'},appCapabilities:{},protocolVersion:'2026-01-26'}).then((host)=>{applyHostContext(host?.hostContext);modelContextSupported=Boolean(host?.hostCapabilities?.updateModelContext?.text);downloadSupported=Boolean(host?.hostCapabilities?.downloadFile);openLinksSupported=Boolean(host?.hostCapabilities?.openLinks);n.ask.classList.toggle('available',modelContextSupported&&Boolean(current?.channel));notify('ui/notifications/initialized',{});setTimeout(()=>{if(!workspace)refreshWorkspace().catch((error)=>status(error.message||'Could not open Await.',true))},450)}).catch(()=>{n.messages.replaceChildren(element('div','This view could not connect. Try opening it again.','empty'))});
+    n.search.addEventListener('input',renderSidebar);
+    n['message-search-launch'].addEventListener('click',()=>showMessageSearch(n.search.value.trim()));
+    const browseItems=()=>[...n.channels.querySelectorAll('button[data-channel-id]'),...n.dms.querySelectorAll('button[data-channel-id]')];
+    n.search.addEventListener('keydown',(event)=>{
+      const items=browseItems();
+      if(event.key==='Enter'&&items.length){event.preventDefault();items[0].click()}
+      else if(event.key==='Enter'&&n.search.value.trim().length>=2){event.preventDefault();n['message-search-launch'].click()}
+      else if(event.key==='ArrowDown'&&items.length){event.preventDefault();items[0].focus()}
+      else if(event.key==='ArrowDown'&&!n['browse-create'].hidden){event.preventDefault();n['browse-create'].focus()}
+      else if(event.key==='ArrowUp'&&items.length){event.preventDefault();items.at(-1).focus()}
+    });
+    n.sidebar.addEventListener('keydown',(event)=>{
+      const active=event.target.closest?.('button[data-channel-id]');
+      if(!active)return;
+      const items=browseItems(),index=items.indexOf(active);
+      if(event.key==='ArrowDown'){event.preventDefault();items[Math.min(index+1,items.length-1)]?.focus()}
+      else if(event.key==='ArrowUp'){event.preventDefault();(index===0?n.search:items[index-1])?.focus()}
+      else if(event.key==='Home'){event.preventDefault();items[0]?.focus()}
+      else if(event.key==='End'){event.preventDefault();items.at(-1)?.focus()}
+      else if(event.key.length===1&&!event.metaKey&&!event.ctrlKey&&!event.altKey){event.preventDefault();n.search.focus();n.search.value+=event.key;renderSidebar()}
+    });
+    document.addEventListener('keydown',(event)=>{if(!n.modal.hidden){if(event.key==='Escape'){event.preventDefault();closeModal();return}if(event.key==='Tab'){const stops=[...n.modal.querySelectorAll('input:not(:disabled),select:not(:disabled),textarea:not(:disabled),button:not(:disabled)')].filter((item)=>item.getClientRects().length);const first=stops[0],last=stops[stops.length-1];if(first&&(!n.modal.contains(document.activeElement)||(event.shiftKey&&document.activeElement===first)||(!event.shiftKey&&document.activeElement===last))){event.preventDefault();(event.shiftKey?last:first).focus()}}return}if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();openSidebar()}if(event.key==='Escape'){const reactionPicker=document.querySelector('.reaction-picker:not([hidden])'),reactionTrigger=reactionPicker?.parentElement?.querySelector('.add-reaction');const popoverTrigger=!n['add-menu'].hidden?n['add-button']:!n.emoji.hidden?n['emoji-button']:!n['reply-emoji'].hidden?n['reply-emoji-button']:null;const hadOverlay=!n.mentions.hidden||!n.emoji.hidden||!n['add-menu'].hidden||!n.picker.hidden||!n['reply-mentions'].hidden||!n['reply-emoji'].hidden||!!reactionPicker||n.shell.classList.contains('show-sidebar');closePopovers();closeSidebar(true);if(reactionTrigger)reactionTrigger.focus();else if(popoverTrigger)popoverTrigger.focus();else if(!hadOverlay&&n.shell.classList.contains('compose-open'))closeComposer(true);else if(!hadOverlay&&panelMode==='search'){closePanel();focusNavigation()}}});
+    n.menu.addEventListener('click',()=>n.shell.classList.contains('show-sidebar')?closeSidebar(true):openSidebar());
+    n['new-messages'].addEventListener('click',()=>{n.messages.scrollTo({top:n.messages.scrollHeight,behavior:'smooth'});clearUnseenMessages();queueCurrentRead()});
+    n.messages.addEventListener('scroll',()=>{if(unseenMessages&&messageScroll().follow){clearUnseenMessages();queueCurrentRead()}},{passive:true});
+    n['nav-scrim'].addEventListener('click',()=>closeSidebar(true));
+    n['compose-launch'].addEventListener('click',openComposer);
+    n.ask.addEventListener('click',async()=>{
+      if(!modelContextSupported||!current?.channel)return;
+      closeSidebar();
+      const channel=current.channel,label=channel.is_dm?channel.name:`#${channel.name}`;
+      n.ask.disabled=true;
+      try{
+        await attachToHost(label,[`Await workspace ID: ${workspace.workspace.id}`,`Conversation: ${label}`,`Channel ID: ${channel.id}`,'Use the connected Await tools to read or change this conversation when asked.']);
+      }catch(error){status(error.message||'Could not add this conversation to your chat.',true)}
+      finally{n.ask.disabled=false}
+    });
+    n['compose-close'].addEventListener('click',()=>closeComposer(true));
+    n['compose-scrim'].addEventListener('click',()=>closeComposer(true));
+    n.refresh.addEventListener('click',async()=>{n.refresh.disabled=true;liveRetry=0;if(liveTimer){clearTimeout(liveTimer);liveTimer=null}try{await refreshWorkspace();if(threadId)await refreshThread();status('')}catch(error){status(error.message||'Could not refresh.',true)}finally{n.refresh.disabled=false}});
+    n.work.addEventListener('click',()=>{if(panelMode==='work')closePanel();else showWork()});
+    n['close-panel'].addEventListener('click',()=>{const focusTarget=panelMode==='details'?n.details:panelMode==='agents'&&sidebarDocked.matches?n['sidebar-agents']:window.matchMedia('(max-width:699px)').matches||panelMode==='search'||panelMode==='agents'?(sidebarDocked.matches?n.search:n.menu):n.work;closePanel();focusTarget.focus()});
+    n['panel-back'].addEventListener('click',showWork);
+    n['panel-create'].addEventListener('click',()=>{if(panelMode==='agents')openModal('agent');else if(workDetail?.kind==='board')openModal('task');else if(workDetail?.kind==='document')openModal('edit-document',workDetail.item)});
+    n.agents.addEventListener('click',()=>{if(panelMode==='agents')closePanel();else showAgents()});
+    n.details.addEventListener('click',()=>{if(panelMode==='details')closePanel();else showDetails()});
+    n['sidebar-work'].addEventListener('click',()=>{showWork();if(!n.panel.hidden)n['close-panel'].focus()});
+    n['sidebar-agents'].addEventListener('click',()=>{showAgents();if(!n.panel.hidden)n['close-panel'].focus()});
+    n['new-channel'].addEventListener('click',()=>{closeSidebar();openModal('channel')});
+    n['browse-create'].addEventListener('click',()=>{const name=n.search.value.trim();closeSidebar();openModal('channel',{name})});
+    n['new-dm'].addEventListener('click',()=>{closeSidebar();openModal('dm')});
+    n.cancel.addEventListener('click',()=>closeModal());
+    n.modal.addEventListener('click',(event)=>{if(event.target===n.modal)closeModal()});
+    n['modal-form'].addEventListener('submit',async(event)=>{
+      event.preventDefault();const mode=n['modal-form'].dataset.mode,field=(name)=>n['modal-form'].elements.namedItem(name)?.value.trim()||'';
+      n['modal-submit'].disabled=true;
+      try{
+        if(mode==='channel'||mode==='dm'){
+          const created=mode==='channel'?await callTool('create_channel',{name:field('name'),is_private:n['modal-form'].elements.namedItem('private').checked}):await callTool('start_dm',{other_id:field('other_id')});
+          closeModal(false);await selectChannel(created.id);focusNavigation();
+        }else if(mode==='leave-channel'||mode==='archive-channel'){
+          const channel=current?.channel;if(!channel||channel.is_dm||channel.name==='general')throw new Error('Choose an ordinary channel.');
+          const fallback=workspace?.channels?.find((item)=>item.name==='general'&&item.joined)?.id;
+          await callTool(mode==='leave-channel'?'leave_channel':'archive_channel',{channel_id:channel.id});
+          closeModal(false);closePanel();await refreshWorkspace(fallback);focusNavigation();hostNotice(mode==='leave-channel'?`You left #${channel.name}.`:`#${channel.name} archived.`);
+        }else if(mode==='rename-channel'){
+          const channelId=current?.channel?.id;if(!channelId)throw new Error('Open a channel first.');
+          await callTool('rename_channel',{channel_id:channelId,name:field('name')});
+          closeModal(false);await refreshWorkspace(channelId);panelStatus('Channel renamed.');n.details.focus();
+        }else if(mode==='add-channel-member'){
+          const channelId=current?.channel?.id;if(!channelId)throw new Error('Open a channel first.');
+          await callTool('add_channel_member',{channel_id:channelId,account_id:field('account_id')});
+          closeModal(false);await refreshWorkspace(channelId);panelStatus('Teammate added to the channel.');n.details.focus();
+        }else if(mode==='remove-channel-member'){
+          const channelId=current?.channel?.id,memberId=n['modal-form'].dataset.memberId;if(!channelId||!memberId)throw new Error('Choose a channel member.');
+          await callTool('remove_channel_member',{channel_id:channelId,account_id:memberId});
+          closeModal(false);await refreshWorkspace(channelId);panelStatus('Member removed from the channel.');n.details.focus();
+        }else if(mode==='edit-message'||mode==='delete-message'){
+          const messageId=n['modal-form'].dataset.messageId,channelId=n['modal-form'].dataset.channelId;
+          if(!messageId||!channelId||current?.channel?.id!==channelId)throw new Error('Open the message again and try once more.');
+          if(mode==='edit-message'){
+            const body=field('body');if(!body||body.length>12000)throw new Error('Enter a message of 12,000 characters or fewer.');
+            const updated=await callTool('edit_message',{message_id:messageId,body});applyEditedMessage(updated);
+            modalReturnFocus=[...n.messages.querySelectorAll('.message'),...n['panel-content'].querySelectorAll('.message')].find((row)=>row.dataset.messageId===messageId)||n.menu;
+            closeModal();hostNotice('Message updated.');
+          }else{
+            await callTool('delete_message',{message_id:messageId});applyDeletedMessage(messageId);
+            modalReturnFocus=n.menu;closeModal();hostNotice('Message deleted.');
+          }
+        }else if(mode==='agent'){
+          const created=await callTool('create_agent',{name:field('name'),description:field('description')});createdAgent={...created,name:field('name')};
+          let channelWarning='';const channel=current?.channel,add=n['modal-form'].elements.namedItem('add_channel');
+          if(add?.checked&&channel)try{await callTool('add_agent_to_channel',{agent_id:created.agent_id,channel_id:channel.id})}catch(error){channelWarning=error.message||'Could not add the agent to this channel.'}
+          closeModal(false);await refreshWorkspace(channel?.id);if(channelWarning)panelStatus(channelWarning,true);n['panel-content'].scrollTop=0;n['panel-content'].querySelectorAll('.agent-connect-copy button')[1]?.focus();
+        }else if(mode==='rotate-agent'){
+          const agentId=n['modal-form'].dataset.agentId,agent=workspace?.members?.find((member)=>member.account_id===agentId);
+          if(!agent)throw new Error('Agent not found. Refresh the workspace and try again.');
+          const rotated=await callTool('rotate_agent_token',{agent_id:agentId});createdAgent={...rotated,name:agent.name,rotated:true};
+          closeModal(false);showAgents();n['panel-content'].scrollTop=0;n['panel-content'].querySelectorAll('.agent-connect-copy button')[1]?.focus();
+        }else if(mode==='board'){
+          const created=await callTool('create_board',{channel_id:current.channel.id,name:field('name')});closeModal(false);await openWorkItem('board',created.id);n['panel-back'].focus();
+        }else if(mode==='document'){
+          const created=await callTool('create_document',{channel_id:current.channel.id,title:field('title'),body:field('body')});closeModal(false);await openWorkItem('document',created.id);n['panel-back'].focus();
+        }else if(mode==='task'||mode==='edit-task'){
+          const boardId=workDetail?.id;if(!boardId)throw new Error('Open a task board first.');
+          const due=field('due_at'),details={title:field('title'),description:field('description'),status:field('status'),priority:Number(field('priority')),assignee_id:field('assignee_id')||null,due_at:due?new Date(`${due}T12:00:00`).getTime():null};
+          if(mode==='task')await callTool('create_task',{board_id:boardId,...details,assignee_id:details.assignee_id||undefined,due_at:details.due_at??undefined});
+          else{const taskId=n['modal-form'].dataset.taskId;if(!taskId)throw new Error('Open a task first.');await callTool('update_task',{task_id:taskId,...details})}
+          closeModal(false);await openWorkItem('board',boardId);n['panel-create'].focus();
+        }else if(mode==='edit-document'){
+          const documentId=workDetail?.id;if(!documentId)throw new Error('Open a document first.');await callTool('update_document',{document_id:documentId,title:field('title'),body:field('body')});closeModal(false);await openWorkItem('document',documentId);n['panel-create'].focus();
+        }
+        status('');
+      }catch(error){modalStatus(error.message||'Could not save shared work.',true)}finally{n['modal-submit'].disabled=false}
+    });
+    const navigatePopover = (popover,columns=1) => popover.addEventListener('keydown',(event)=>{const buttons=[...popover.querySelectorAll('button:not(:disabled)')],index=buttons.indexOf(document.activeElement);let next=index;if(event.key==='ArrowRight')next=Math.min(buttons.length-1,index+1);else if(event.key==='ArrowLeft')next=Math.max(0,index-1);else if(event.key==='ArrowDown')next=Math.min(buttons.length-1,index+columns);else if(event.key==='ArrowUp')next=Math.max(0,index-columns);else if(event.key==='Home')next=0;else if(event.key==='End')next=buttons.length-1;else return;event.preventDefault();buttons[next]?.focus()});
+    navigatePopover(n.emoji,6);navigatePopover(n['reply-emoji'],6);navigatePopover(n['add-menu']);
+    n['emoji-button'].addEventListener('click',()=>{const hidden=n.emoji.hidden;closePopovers();n.emoji.hidden=!hidden;n['emoji-button'].setAttribute('aria-expanded',String(!hidden));if(hidden)n.emoji.querySelector('button')?.focus()});
+    n['add-button'].addEventListener('click',()=>{const hidden=n['add-menu'].hidden;closePopovers();n['add-menu'].hidden=!hidden;n['add-button'].setAttribute('aria-expanded',String(!hidden));if(hidden)n['add-menu'].querySelector('button')?.focus()});
+    n['upload-choice'].addEventListener('click',()=>{closePopovers();n['file-input'].click()});
+    n['library-choice'].addEventListener('click',()=>openPicker('library'));
+    n['gif-choice'].addEventListener('click',()=>openPicker('gif'));
+    n['channel-choice'].addEventListener('click',()=>{closePopovers();richEditor.insertText('#');postId=null;syncComposer()});
+    n['picker-close'].addEventListener('click',closePopovers);
+    n['picker-search'].addEventListener('input',()=>{clearTimeout(pickerTimer);pickerTimer=setTimeout(loadPicker,260)});
+    n['file-input'].addEventListener('change',()=>{chooseFile(n['file-input'].files?.[0]);n['file-input'].value=''});
+    n['remove-queued'].addEventListener('click',()=>{clearQueued();postId=null;syncComposer();richEditor.focus()});
+    n.shell.addEventListener('dragover',(event)=>{if(event.dataTransfer?.types?.includes('Files')){event.preventDefault();n.shell.classList.add('dragging-file')}});
+    n.shell.addEventListener('dragleave',(event)=>{if(!n.shell.contains(event.relatedTarget))n.shell.classList.remove('dragging-file')});
+    n.shell.addEventListener('drop',(event)=>{n.shell.classList.remove('dragging-file');if(event.dataTransfer?.files?.length){event.preventDefault();if(workspace?.permissions?.includes('post')===false)return;openComposer();chooseFile(event.dataTransfer.files[0])}});
+    n.draft.addEventListener('paste',(event)=>{const file=[...(event.clipboardData?.files||[])][0];if(file){event.preventDefault();chooseFile(file)}});
+    n['mention-button'].addEventListener('click',()=>{richEditor.insertText('@');postId=null;syncComposer()});
+    n['format-toggle'].addEventListener('click',()=>{const open=n['formatting-row'].hidden;n['formatting-row'].hidden=!open;n['format-toggle'].setAttribute('aria-expanded',String(open));n['format-toggle'].setAttribute('aria-label',open?'Hide formatting':'Show formatting');richEditor.focus()});
+    for(const button of n['formatting-row'].querySelectorAll('[data-format]')){button.addEventListener('mousedown',(event)=>event.preventDefault());button.addEventListener('click',()=>applyFormat(button.dataset.format))}
+    n.compose.addEventListener('submit',async(event)=>{event.preventDefault();const body=richEditor.markdown().trim(),channelId=current?.channel?.id,selected=queued;if((!body&&!selected)||!channelId||n.send.disabled||posting)return;closePopovers();posting=true;syncComposer();if(!postId)postId=crypto.randomUUID();const clientId=postId;const text=selected?.kind==='gif'?`${body}${body?'\n':''}![GIF](${selected.item.url})\n[View on GIPHY](${selected.item.page_url})`:body||`Shared ${selected?.file?.name||selected?.item?.filename||'file'}`;mergeVisibleMessage({id:`optimistic:${clientId}`,client_id:clientId,channel_id:channelId,thread_id:null,author_id:workspace.viewer.account_id,body:text,created_at:Date.now(),optimistic:true});let posted;try{
+      if(selected?.kind==='file')posted=await callTool('post_file',{channel_id:channelId,filename:selected.file.name,mime:selected.file.type||'application/octet-stream',content_base64:await fileBase64(selected.file),caption:body||`Shared ${selected.file.name}`});
+      else if(selected?.kind==='library')posted=await callTool('share_file',{channel_id:channelId,attachment_id:selected.item.id,caption:body||`Shared ${selected.item.filename}`});
+      else posted=await callTool('post_message',{channel_id:channelId,body:text,client_id:clientId});
+    }catch(error){removeOptimistic(clientId);status(error.message||'Could not send. Your draft is still here.',true);posting=false;syncComposer();return}drafts.delete(channelId);if(current?.channel?.id===channelId){removeOptimistic(clientId);if(!posted?.pending)mergeVisibleMessage(posted,clientId);if(richEditor.markdown().trim()===body&&queued===selected){richEditor.clear();clearQueued()}status(posted?.pending?'Sent for owner review.':'')}if(postId===clientId)postId=null;posting=false;syncComposer()});
+    n['reply-format-toggle'].addEventListener('click',()=>{const open=n['reply-formatting-row'].hidden;n['reply-formatting-row'].hidden=!open;n['reply-format-toggle'].setAttribute('aria-expanded',String(open));n['reply-format-toggle'].setAttribute('aria-label',open?'Hide reply formatting':'Show reply formatting');replyEditor.focus()});
+    for(const button of n['reply-formatting-row'].querySelectorAll('[data-reply-format]')){button.addEventListener('mousedown',(event)=>event.preventDefault());button.addEventListener('click',()=>{replyEditor.format(button.dataset.replyFormat);syncReply()})}
+    n['reply-emoji-button'].addEventListener('click',()=>{const hidden=n['reply-emoji'].hidden;closeReplyPopovers();n['reply-emoji'].hidden=!hidden;n['reply-emoji-button'].setAttribute('aria-expanded',String(!hidden));if(hidden)n['reply-emoji'].querySelector('button')?.focus()});
+    n['reply-mention-button'].addEventListener('click',()=>{replyEditor.insertText('@');syncReply()});
+    n['reply-form'].addEventListener('submit',async(event)=>{
+      event.preventDefault();
+      const body=replyEditor.markdown().trim(),selectedThread=threadId,channelId=current?.channel?.id;
+      if(!body||body.length>12000||!selectedThread||!channelId||n['reply-send'].disabled||replyPosting)return;
+      const submittedDoc=JSON.stringify(replyEditor.snapshot());
+      closeReplyPopovers();replyPosting=true;syncReply();
+      if(!replyPostId)replyPostId=crypto.randomUUID();
+      const clientId=replyPostId;
+      const optimistic={id:`optimistic:${clientId}`,client_id:clientId,channel_id:channelId,thread_id:selectedThread,author_id:workspace.viewer.account_id,body,created_at:Date.now(),optimistic:true};
+      if(threadMessages){threadMessages.push(optimistic);renderPanel(true)}
+      let posted;
+      try{posted=await callTool('post_message',{channel_id:channelId,thread_id:selectedThread,body,client_id:clientId})}
+      catch(error){
+        if(threadId===selectedThread&&threadMessages){threadMessages=threadMessages.filter((item)=>item.id!==optimistic.id);renderPanel()}
+        if(threadId===selectedThread)replyStatus(error.message||'Could not reply. Your draft is still here.',true);
+        replyPosting=false;syncReply();return;
+      }
+      if(threadId===selectedThread&&threadMessages){
+        const index=threadMessages.findIndex((item)=>item.id===optimistic.id);
+        if(index>=0){if(posted?.pending)threadMessages.splice(index,1);else threadMessages[index]=posted}
+        else if(!posted?.pending&&!threadMessages.some((item)=>item.id===posted.id))threadMessages.push(posted);
+        renderPanel();
+      }
+      if(threadId===selectedThread&&JSON.stringify(replyEditor.snapshot())===submittedDoc)replyEditor.clear();
+      if(JSON.stringify(replyDrafts.get(selectedThread))===submittedDoc)replyDrafts.delete(selectedThread);
+      if(replyPostId===clientId)replyPostId=null;
+      replyPosting=false;if(threadId===selectedThread)replyStatus(posted?.pending?'Reply sent for owner review.':'');
+      if(!posted?.pending)scheduleSync();syncReply();
+    });
+  </script>
+</body>
+</html>

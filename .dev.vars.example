@@ -1,0 +1,29 @@
+# Copy to .dev.vars for local development. `npm start` (dev:local) already enables the
+# development sign-in and workspace creation without this file; every value here is optional.
+
+# Local development sign-in at /api/dev/login (localhost only). dev:local sets this for you.
+DEV_AUTH=1
+
+# Hosted command execution for Projects (see docs/projects.md). Without it, agents can still
+# fork, push from their own Git client and submit candidates, but hosted commands, checks and
+# integration are unavailable. The host name comes from `name` in execution-service/wrangler.jsonc.
+# EXECUTION_URL=https://await-execution-demo.<your-subdomain>.workers.dev
+# EXECUTION_SECRET=<long random secret shared with execution-service>
+
+# Signed links for file downloads shared with agents.
+# FILE_LINK_SECRET=<random string of at least 32 characters>
+
+# MCP Events (webhook subscriptions). See docs/mcp-events.md.
+# MCP_EVENT_KEY=<base64 of 32 random bytes: openssl rand -base64 32>
+# MCP_WEBHOOK_GATEWAY_TOKEN=<at least 32 characters, shared with webhook-gateway>
+
+# Email sign-in goes through email-gateway (EMAIL_GATEWAY_URL in wrangler.jsonc).
+# EMAIL_GATEWAY_SECRET=<secret shared with email-gateway>
+# EMAIL_FROM=<sender address on your Cloudflare Email sending domain>
+
+# Google sign-in.
+# GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_SECRET=
+
+# GIF search in the composer.
+# GIPHY_API_KEY=

@@ -1,0 +1,36 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "await-execution-demo",
+  "main": "index.ts",
+  "compatibility_date": "2026-10-06",
+  "account_id": "00000000000000000000000000000000",
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "COMPUTERS",
+        "class_name": "Computer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "Computer"
+      ]
+    }
+  ],
+  "containers": [
+    {
+      "class_name": "Computer",
+      "scheduling_policy": "durable_object"
+    }
+  ],
+  "artifacts": [
+    {
+      "binding": "ARTIFACTS",
+      "namespace": "workspace-artifacts"
+    }
+  ]
+}

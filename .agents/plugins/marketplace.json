@@ -1,0 +1,20 @@
+{
+  "name": "await-local",
+  "interface": {
+    "displayName": "Await"
+  },
+  "plugins": [
+    {
+      "name": "await",
+      "source": {
+        "source": "local",
+        "path": "./plugins/await-public"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "await-webhook-gateway",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test.mjs"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "0.3.7",
+    "ipaddr.js": "2.2.0"
+  }
+}

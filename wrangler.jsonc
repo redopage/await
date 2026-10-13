@@ -1,0 +1,84 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "await-chat-app",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-10-06",
+  "compatibility_flags": [
+    "global_fetch_strictly_public"
+  ],
+  "account_id": "00000000000000000000000000000000",
+  "workers_dev": true,
+  "routes": [],
+  "assets": {
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/api/*",
+      "/mcp",
+      "/authorize",
+      "/oauth/*",
+      "/register",
+      "/.well-known/*"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "await-chat",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "WORKSPACES",
+        "class_name": "Workspace"
+      }
+    ]
+  },
+  "kv_namespaces": [
+    {
+      "binding": "OAUTH_KV",
+      "id": "00000000000000000000000000000000"
+    }
+  ],
+  "services": [
+    {
+      "binding": "MCP_WEBHOOK_GATEWAY",
+      "service": "await-webhook-gateway",
+      "entrypoint": "WebhookGateway"
+    }
+  ],
+  "artifacts": [
+    {
+      "binding": "ARTIFACTS",
+      "namespace": "workspace-artifacts",
+      "remote": true
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "await-chat-files"
+    }
+  ],
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "Workspace"
+      ]
+    }
+  ],
+  "vars": {
+    "ARTIFACT_ACCOUNT_ID": "00000000000000000000000000000000",
+    "ARTIFACT_NAMESPACE": "workspace-artifacts",
+    "APP_ORIGIN": "https://your-await.example",
+    "EMAIL_GATEWAY_URL": "https://your-email-gateway.example",
+    "AUTH_EMAIL_ENABLED": "1",
+    "EMAIL_ENABLED": "1",
+    "BOOTSTRAP_DOMAINS": "",
+    "WORKSPACE_CREATION": "invite"
+  }
+}

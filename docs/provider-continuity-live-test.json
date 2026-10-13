@@ -1,0 +1,289 @@
+{
+  "executed_at": "2026-10-11T16:51:26.613Z",
+  "execution": "Authenticated Claude Code 2.1.296, project-scoped MCP, Cloudflare hosted workspace",
+  "approval": "Local fixture human reviewer after reading exact documentation and the previous pinned source",
+  "starting_commit": "95c324db43797febe996b24c7460749b41478262",
+  "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+  "candidate": {
+    "id": "2597c79b-9daf-4bc0-aaa8-8d2d8baeb4bf",
+    "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+    "run_id": "6b1e8f0a-3c2d-4a57-9e1b-2f4d7a8c9b10",
+    "actor_id": "aaa6b36c-4736-47c6-98dd-6b7db8cb26d3",
+    "commit_hash": "50847c2cf2e361ff356e6a6935d1c798f78f714f",
+    "base_commit": "95c324db43797febe996b24c7460749b41478262",
+    "summary": "Add docs/reset-contract.md documenting the integrated reset contract: resetToken returns an ISO 8601 UTC expiresAt exactly 15 minutes after issue; resetState shows the form only when now is strictly before expiry, and shows recovery at expiry, after expiry, or when either timestamp is invalid. Documentation only. No changes to the implementation or tests.",
+    "checks": "Hosted run job 7d2e4f6a ran `node --test reset.test.mjs` on this commit and exited 0 (2 tests, 2 pass, 0 fail). `git status` showed only `?? docs/`. `git diff --stat 95c324d -- src reset.test.mjs` was empty. An em dash grep on the doc found no matches. Author-reported; no independent integration has been run for this candidate.",
+    "status": "pending",
+    "reviewed_by": null,
+    "review_note": "",
+    "verified_at": 1791737214445,
+    "created_at": 1791737214445,
+    "requirements_revision": 1,
+    "revision": 1,
+    "reviewed_requirements_revision": null
+  },
+  "integration": {
+    "id": "59c2459e-e97a-44ae-861f-bd455a5d794e",
+    "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+    "actor_id": "188e14e1-b5b9-431b-989c-0756190e100a",
+    "repository": "1b4cc2d1-2a42-49e0-a5b8-7f016afdcdf9-i-59c2459e-e97a-44ae-861f-bd455a5d794e",
+    "candidate_ids": [
+      "2597c79b-9daf-4bc0-aaa8-8d2d8baeb4bf"
+    ],
+    "base_commit": "95c324db43797febe996b24c7460749b41478262",
+    "commit_hash": "420103c121523c2ac756ad5d0dd3f608939aa1d8",
+    "requirements_revision": 1,
+    "check_command": "node --test reset.test.mjs",
+    "status": "integrated",
+    "result": {
+      "status": "complete",
+      "stdout": "✔ API and form agree on expiry (22.210295ms)\n✔ Invalid timestamp recovers (0.17788ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 388.236736\n",
+      "stderr": "",
+      "exit_code": 0,
+      "commit": "420103c121523c2ac756ad5d0dd3f608939aa1d8",
+      "started_at": 1791737449460,
+      "finished_at": 1791737468105,
+      "image": "cloudflare/debian-trixie"
+    },
+    "created_at": 1791737405563,
+    "reviewed_by": "188e14e1-b5b9-431b-989c-0756190e100a"
+  },
+  "task": {
+    "id": "1cbeaf85-8529-404c-a412-43706bdf7b87",
+    "board_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+    "title": "Document the checked reset contract",
+    "description": "",
+    "status": "done",
+    "priority": 2,
+    "assignee_id": "aaa6b36c-4736-47c6-98dd-6b7db8cb26d3",
+    "due_at": null,
+    "created_by": "188e14e1-b5b9-431b-989c-0756190e100a",
+    "created_at": 1791737125968,
+    "updated_at": 1791737486601,
+    "completed_at": 1791737486601
+  },
+  "provider": "claude",
+  "report": "I added `docs/reset-contract.md` and submitted it. The test passed in my own hosted run, and the change is waiting for a person to review it. I've stopped work.\n\n**Submission**\n- I'm the \"Claude continuity teammate\" agent, working on task `1cbeaf85-8529-404c-a412-43706bdf7b87`.\n- My run is `6b1e8f0a-3c2d-4a57-9e1b-2f4d7a8c9b10`. It started from the integrated commit `95c324d`.\n- The submission is candidate `2597c79b-9daf-4bc0-aaa8-8d2d8baeb4bf`, commit `50847c2cf2e361ff356e6a6935d1c798f78f714f`, requirements revision 1.\n- The repository confirms the commit adds only `docs/reset-contract.md`. Nothing in `src/` or `reset.test.mjs` changed.\n\n**What the document covers**\n- **Token expiry:** `resetToken` returns `expiresAt`, an ISO 8601 UTC timestamp exactly 15 minutes after issue. Examples: `0` gives `1970-01-01T00:15:00.000Z`, and `2026-10-11T12:00:00.000Z` gives `2026-10-11T12:15:00.000Z`.\n- **Exact boundary:** the form shows only when the current time is strictly before expiry. For a token issued at `0`: `899999` shows the form, `900000` (exactly at expiry) shows recovery, and `900001` shows recovery.\n- **Invalid links:** if either timestamp can't be read as a valid time, the result is always \"Request a new reset link\". That covers an invalid `expiresAt`, a `NaN` current time, and an invalid string current time.\n- **What the test covers:** the document says that `reset.test.mjs` doesn't test three of these cases (`900001`, `NaN` and the invalid string time). They were only checked by the interface author's own quick tests.\n\n**Evidence**\n- `node --test reset.test.mjs` ran on commit `50847c2` in my hosted run (job `7d2e4f6a`): 2 tests, 2 passed, 0 failed, exit code 0.\n- Before committing, `git status` showed only `docs/` as new, and comparing `src` and `reset.test.mjs` against `95c324d` showed no differences.\n- I read the actual integrated source before writing, and it matches the contract the two teammates agreed on (events 4 and 7).\n\nI posted a note on the project timeline about the scope (event 34) and set the run to sleeping. No combined check has been run on this candidate, so the only test result is the one from my own run.",
+  "tool_calls": [
+    {
+      "tool": "get_agent_context",
+      "status": "requested",
+      "arguments": {}
+    },
+    {
+      "tool": "read_project_handoff",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68"
+      }
+    },
+    {
+      "tool": "read_project",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "after": 31
+      }
+    },
+    {
+      "tool": "start_project_run",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "client_id": "6b1e8f0a-3c2d-4a57-9e1b-2f4d7a8c9b10",
+        "title": "Document the checked reset contract",
+        "task_id": "1cbeaf85-8529-404c-a412-43706bdf7b87",
+        "paths": [
+          "docs/reset-contract.md"
+        ]
+      }
+    },
+    {
+      "tool": "execute_project_command",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "run_id": "6b1e8f0a-3c2d-4a57-9e1b-2f4d7a8c9b10",
+        "client_id": "0c4a2d71-5e8b-4f39-a6d2-7b1e9c3f5a20",
+        "command": "git log --oneline -5 && find . -type f -not -path './.git/*' | sort && for f in README.md package.json src/reset-api.ts src/reset-form.ts reset.test.mjs; do echo \"== $f\"; cat \"$f\"; done; ls docs 2>/dev/null || echo \"no docs dir\""
+      }
+    },
+    {
+      "tool": "post_project_event",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "client_id": "3f2e1d0c-9b8a-4765-8432-10fedcba9876",
+        "body": "Claude continuity teammate on task 1cbeaf85-8529-404c-a412-43706bdf7b87, run 6b1e8f0a. I am adding docs/reset-contract.md only, documenting the contract already agreed (seq 4 and 7) and integrated at 95c324d: resetToken returns expiresAt = toISOString(now + 15 min); resetState shows the form only when both times are finite and now < expiry, recovery at equality, after, or for invalid input. No implementation or test changes."
+      }
+    },
+    {
+      "tool": "read_project",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "after": 31
+      }
+    },
+    {
+      "tool": "read_project",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "after": 34
+      }
+    },
+    {
+      "tool": "read_project",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "after": 34
+      }
+    },
+    {
+      "tool": "read_project",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "after": 34
+      }
+    },
+    {
+      "tool": "read_project",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "after": 34
+      }
+    },
+    {
+      "tool": "read_project",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "after": 34
+      }
+    },
+    {
+      "tool": "checkpoint_project_run",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "run_id": "6b1e8f0a-3c2d-4a57-9e1b-2f4d7a8c9b10",
+        "client_id": "5a7c9e1b-2d4f-4a68-8b0c-1e3f5a7c9d21",
+        "expected_revision": 1,
+        "status": "working",
+        "checkpoint": "Inspect job 0c4a2d71 pending. Next: write docs/reset-contract.md only, run node --test reset.test.mjs, publish that commit.",
+        "cursor": 34,
+        "paths": [
+          "docs/reset-contract.md"
+        ]
+      }
+    },
+    {
+      "tool": "read_project",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "after": 34
+      }
+    },
+    {
+      "tool": "read_project",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "after": 34
+      }
+    },
+    {
+      "tool": "read_project",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "after": 34
+      }
+    },
+    {
+      "tool": "read_project",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "after": 34
+      }
+    },
+    {
+      "tool": "execute_project_command",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "run_id": "6b1e8f0a-3c2d-4a57-9e1b-2f4d7a8c9b10",
+        "client_id": "7d2e4f6a-8b1c-4e35-9a7d-3c5e7f9a1b42",
+        "command": "set -e\nmkdir -p docs\ncat > docs/reset-contract.md <<'EOF'\n# Password reset contract\n\nThis document describes the reset contract as integrated and checked at\ncommit `95c324d`. It records current behavior only. The source of truth is\n`src/reset-api.ts`, `src/reset-form.ts`, and `reset.test.mjs`.\n\n## Token expiry (API)\n\n`resetToken(now)` in `src/reset-api.ts` returns `{ expiresAt }`.\n\n- `now` is either a millisecond epoch number or a `Date`.\n- The token lifetime is exactly 15 minutes (`15 * 60 * 1000` ms).\n- `expiresAt` is `new Date(issuedAt + 900000).toISOString()`: an ISO 8601\n  UTC string with millisecond precision and a `Z` suffix, for example\n  `2026-10-11T12:15:00.000Z` for an issue time of `2026-10-11T12:00:00.000Z`.\n\n| Issued at (`now`)                     | `expiresAt`                  |\n| ------------------------------------- | ---------------------------- |\n| `0`                                   | `1970-01-01T00:15:00.000Z`   |\n| `new Date('2026-10-11T12:00:00.000Z')` | `2026-10-11T12:15:00.000Z`   |\n\n## Form state (interface)\n\n`resetState(expiresAt, now)` in `src/reset-form.ts` returns one of two\nstrings:\n\n- `Choose a new password`: the reset form is usable.\n- `Request a new reset link`: the recovery state.\n\n`expiresAt` is parsed with `Date.parse`. `now` may be a millisecond epoch\nnumber, a `Date`, or a date string (parsed with `Date.parse`).\n\n## Exact boundary behavior\n\nThe form is shown only when the current time is strictly before expiry.\nExpiry itself is not a valid moment.\n\nFor a token issued at `0` (`expiresAt` = `1970-01-01T00:15:00.000Z`, which is\n`900000` ms):\n\n| `now`    | Result                     | Reason                  |\n| -------- | -------------------------- | ----------------------- |\n| `899999` | `Choose a new password`    | 1 ms before expiry      |\n| `900000` | `Request a new reset link` | exactly at expiry       |\n| `900001` | `Request a new reset link` | after expiry            |\n\n## Invalid-link recovery\n\nIf either timestamp does not normalize to a finite number, the result is\nalways `Request a new reset link`. This covers:\n\n- an unparseable `expiresAt`, for example `'invalid'`;\n- a `now` of `NaN`;\n- an unparseable string `now`, for example `'invalid'`.\n\nThe form never fails open: any input it cannot interpret leads the user to\nrequest a new link.\n\n## Checks\n\n`node --test reset.test.mjs` covers the 15-minute ISO value, the\n`899999` and `900000` boundary cases, and the invalid `expiresAt` case. The\n`900001`, `NaN` `now`, and invalid string `now` cases follow from the same\ncode path and were exercised by the interface author's focused assertions,\nnot by `reset.test.mjs`.\nEOF\ngrep -n $'—' docs/reset-contract.md && { echo \"em dash found\"; exit 1; } || true\ngit status --short\ngit diff --stat 95c324db43797febe996b24c7460749b41478262 -- src reset.test.mjs\nnode --test reset.test.mjs"
+      }
+    },
+    {
+      "tool": "read_project",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "after": 36
+      }
+    },
+    {
+      "tool": "publish_candidate",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "run_id": "6b1e8f0a-3c2d-4a57-9e1b-2f4d7a8c9b10",
+        "commit": "50847c2cf2e361ff356e6a6935d1c798f78f714f",
+        "requirements_revision": 1,
+        "summary": "Add docs/reset-contract.md documenting the integrated reset contract: resetToken returns an ISO 8601 UTC expiresAt exactly 15 minutes after issue; resetState shows the form only when now is strictly before expiry, and shows recovery at expiry, after expiry, or when either timestamp is invalid. Documentation only. No changes to the implementation or tests.",
+        "checks": "Hosted run job 7d2e4f6a ran `node --test reset.test.mjs` on this commit and exited 0 (2 tests, 2 pass, 0 fail). `git status` showed only `?? docs/`. `git diff --stat 95c324d -- src reset.test.mjs` was empty. An em dash grep on the doc found no matches. Author-reported; no independent integration has been run for this candidate."
+      }
+    },
+    {
+      "tool": "read_candidate_files",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "run_id": "6b1e8f0a-3c2d-4a57-9e1b-2f4d7a8c9b10",
+        "commit": "50847c2cf2e361ff356e6a6935d1c798f78f714f"
+      }
+    },
+    {
+      "tool": "checkpoint_project_run",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "run_id": "6b1e8f0a-3c2d-4a57-9e1b-2f4d7a8c9b10",
+        "client_id": "5a7c9e1b-2d4f-4a68-8b0c-1e3f5a7c9d22",
+        "expected_revision": 1,
+        "status": "sleeping",
+        "checkpoint": "Done. Candidate 2597c79b submitted at commit 50847c2 (adds docs/reset-contract.md only). node --test reset.test.mjs passed 2/2 in the hosted run. Waiting for human review. No further work planned.",
+        "cursor": 37,
+        "paths": [
+          "docs/reset-contract.md"
+        ]
+      }
+    },
+    {
+      "tool": "checkpoint_project_run",
+      "status": "requested",
+      "arguments": {
+        "project_id": "be9f238e-b184-4967-ae07-f8a34e06fc68",
+        "run_id": "6b1e8f0a-3c2d-4a57-9e1b-2f4d7a8c9b10",
+        "client_id": "5a7c9e1b-2d4f-4a68-8b0c-1e3f5a7c9d23",
+        "expected_revision": 2,
+        "status": "sleeping",
+        "checkpoint": "Done. Candidate 2597c79b submitted at commit 50847c2 (adds docs/reset-contract.md only). node --test reset.test.mjs passed 2/2 in the hosted run. Waiting for human review. No further work planned.",
+        "cursor": 37,
+        "paths": [
+          "docs/reset-contract.md"
+        ]
+      }
+    }
+  ],
+  "task_id": "1cbeaf85-8529-404c-a412-43706bdf7b87"
+}

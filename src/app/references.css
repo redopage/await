@@ -1,0 +1,30 @@
+/* Inline references: Kanban cards linked from conversation as <task:id>. */
+
+.task-chip, .composer-chip.task-chip {
+  --status: var(--text-muted);
+  display: inline-flex; align-items: center; gap: 4px; max-width: 320px; margin: 0 1px; padding: 1px 8px 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--status) 35%, transparent); border-radius: 999px;
+  background: color-mix(in srgb, var(--status) 12%, transparent); color: var(--text);
+  font-size: 0.92em; font-weight: 500; line-height: 1.5; text-decoration: none; vertical-align: baseline; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.message-body a.task-chip, .message-body a.task-chip:hover { text-decoration: none; }
+.task-chip:hover { border-color: var(--status); }
+.task-chip svg { width: 12px; height: 12px; flex: none; color: var(--status); }
+/* Only a finished card gets a check; open cards show their column's dot. */
+.task-chip-dot { width: 6px; height: 6px; margin: 0 2px; flex: none; border-radius: 50%; background: var(--status); }
+.task-chip.status-done { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--status) 60%, transparent); }
+
+.mention-channel-icon.task-icon { color: var(--status); }
+.mention-list small { display: block; }
+
+.task-ref { display: inline-flex; align-items: center; gap: 3px; }
+.task-ref svg { width: 11px; height: 11px; }
+
+.task-references { margin-top: 4px; }
+.task-references h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+.task-references ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 220px; overflow: auto; }
+.task-references button { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; width: 100%; padding: 8px 10px; text-align: left; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: inherit; cursor: pointer; }
+.task-references button:hover { border-color: var(--line-strong); }
+.task-references strong { font-size: 12px; }
+.task-references time { font-size: 11px; color: var(--text-muted); justify-self: end; }
+.task-references span { grid-column: 1 / -1; font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

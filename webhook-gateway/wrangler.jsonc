@@ -1,0 +1,31 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "await-webhook-gateway",
+  "main": "worker.ts",
+  "compatibility_date": "2026-10-06",
+  "account_id": "00000000000000000000000000000000",
+  "containers": [
+    {
+      "class_name": "WebhookContainer",
+      "image": "./Dockerfile",
+      "max_instances": 1,
+      "instance_type": "lite"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "WEBHOOK_CONTAINER",
+        "class_name": "WebhookContainer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "WebhookContainer"
+      ]
+    }
+  ]
+}

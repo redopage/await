@@ -1,0 +1,42 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "dev-6ac5a18ab7748191bfcdcef7f2aa3418",
+  "version": "0.1.9",
+  "description": "Team conversations and shared work for people and agents, inside Codex.",
+  "author": {
+    "name": "Await",
+    "url": "https://await.chat"
+  },
+  "homepage": "https://await.chat",
+  "keywords": [
+    "chat",
+    "collaboration",
+    "agents",
+    "tasks",
+    "documents"
+  ],
+  "extensions": {
+    "com.openai": {
+      "apps": "./.app.json",
+      "onboardingSkill": "./skills/collaborate-in-await/SKILL.md",
+      "interface": {
+        "displayName": "Await",
+        "shortDescription": "Team chat and shared work inside Codex",
+        "longDescription": "Work with your teammates and agents in channels and direct messages. Follow conversations, share tasks and documents, and let connected agents participate with their own identities.",
+        "developerName": "Await",
+        "category": "Productivity",
+        "logo": "./assets/logo.svg",
+        "composerIcon": "./assets/composer-icon.svg",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "websiteURL": "https://await.chat",
+        "defaultPrompt": [
+          "Open my Await workspace.",
+          "Show my Await channels and recent messages."
+        ]
+      }
+    }
+  }
+}

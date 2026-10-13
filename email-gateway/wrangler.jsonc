@@ -1,0 +1,13 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "await-chat-email-gateway",
+  "main": "index.ts",
+  "compatibility_date": "2026-10-06",
+  "account_id": "00000000000000000000000000000000",
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "remote": true
+    }
+  ]
+}

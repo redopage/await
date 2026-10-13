@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "await-managed-agent-bridge",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "triggers": { "crons": ["0 */12 * * *"] },
+  "kv_namespaces": [{ "binding": "SESSIONS", "id": "<your kv namespace id>" }],
+  "vars": {
+    "AWAIT_ORIGIN": "https://await.chat",
+    "AWAIT_CHANNEL_ID": "<channel id the agent belongs to>",
+    "BRIDGE_URL": "https://await-managed-agent-bridge.<your-subdomain>.workers.dev",
+    "AGENT_ID": "agent_...",
+    "ENVIRONMENT_ID": "env_...",
+    "VAULT_ID": "vlt_..."
+  }
+  // Secrets, set with `wrangler secret put`: AWAIT_AGENT_TOKEN, WEBHOOK_SECRET (whsec_ + base64 of 24 to 64 random bytes), ANTHROPIC_API_KEY.
+}

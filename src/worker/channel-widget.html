@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Await channel</title>
+  <style>
+    :root { color-scheme: light dark; font: 14px/1.45 var(--font-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); --bg:#fff; --surface:#f8f8f9; --hover:#f0f0f2; --text:#222329; --muted:#747680; --line:#e8e8eb; --accent:#34363e; --avatar:#e4e5e8; --agent:#e9e5f2; --danger:#aa4448; }
+    :root[data-theme="light"] { color-scheme:light; }
+    :root[data-theme="dark"] { color-scheme:dark; --bg:#171719; --surface:#242428; --hover:#303035; --text:#f1f1f2; --muted:#aaaab1; --line:#39393e; --accent:#f1f1f2; --avatar:#404147; --agent:#4c4259; --danger:#ef9a9f; }
+    @media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { color-scheme:dark; --bg:#171719; --surface:#242428; --hover:#303035; --text:#f1f1f2; --muted:#aaaab1; --line:#39393e; --accent:#f1f1f2; --avatar:#404147; --agent:#4c4259; --danger:#ef9a9f; } }
+    :root[data-host-styles] { --bg:var(--color-background-primary, light-dark(#fff,#171719)); --surface:var(--color-background-secondary, light-dark(#f8f8f9,#242428)); --hover:var(--color-background-tertiary, light-dark(#f0f0f2,#303035)); --text:var(--color-text-primary, light-dark(#222329,#f1f1f2)); --muted:var(--color-text-secondary, light-dark(#747680,#aaaab1)); --line:var(--color-border-primary, light-dark(#e8e8eb,#39393e)); --accent:var(--color-text-primary, light-dark(#34363e,#f1f1f2)); --danger:var(--color-text-danger, light-dark(#aa4448,#ef9a9f)); }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 8px; background: transparent; color: var(--text); }
+    .card { overflow: hidden; max-width: 680px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 15px; border-bottom: 1px solid var(--line); }
+    h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
+    .channel-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .channel-name span { color: var(--muted); font-weight: 600; }
+    .channel-name h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .header-actions { display:flex; align-items:center; gap:4px; }
+    button { flex: none; border: 0; border-radius: 8px; padding: 7px 9px; background: transparent; color: var(--text); font: inherit; font-weight: 500; cursor: pointer; }
+    button:hover { background: var(--hover); }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .description { margin: 0; padding: 9px 15px; border-bottom: 1px solid var(--line); color: var(--muted); }
+    .messages { max-height: 390px; overflow-y: auto; }
+    .thread-bar { display: flex; align-items: center; gap: 9px; padding: 7px 15px; border-bottom: 1px solid var(--line); background: var(--surface); color: var(--muted); }
+    .thread-bar[hidden] { display: none; }
+    .thread-bar button { padding: 3px 8px; }
+    .message { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; padding: 11px 15px; }
+    .message + .message { border-top: 1px solid var(--line); }
+    .avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--avatar); color: var(--text); font-size: 11px; font-weight: 600; }
+    .avatar.agent { background: var(--agent); }
+    .meta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; min-width: 0; }
+    .meta strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .agent-label { border-radius: 5px; padding: 1px 5px; background: var(--agent); color: var(--text); font-size: 10px; font-weight: 600; }
+    time { color: var(--muted); font-size: 11px; }
+    .body { margin: 3px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .attachments, .reactions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+    .chip { border: 1px solid var(--line); border-radius: 7px; padding: 2px 6px; color: var(--muted); font-size: 11px; }
+    .reply { margin-top: 5px; padding: 2px 0; color: var(--muted); font-size: 12px; }
+    .reply:hover { background: transparent; color:var(--text); text-decoration: underline; }
+    .compose { display: grid; gap: 8px; padding: 12px 15px; border-top: 1px solid var(--line); }
+    .compose[hidden] { display:none; }
+    .compose label { color: var(--muted); font-size: 12px; font-weight: 600; }
+    textarea { display: block; width: 100%; min-height: 82px; resize: vertical; border: 1px solid var(--line); border-radius: 10px; padding: 10px 11px; background: var(--surface); color: var(--text); font: inherit; }
+    textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+    .compose-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .compose-actions small { color: var(--muted); }
+    .compose-buttons { display:flex; gap:4px; }
+    .send { background: var(--text); color: var(--bg); }
+    .send:hover { background: var(--accent); }
+    .status { margin: 0; padding:9px 15px; border-top:1px solid var(--line); color: var(--muted); font-size: 12px; }
+    .status[hidden] { display: none; }
+    .status.error, .error { color: var(--danger); }
+    .empty, .error { margin: 0; padding: 26px 18px; text-align: center; color: var(--muted); }
+    @media (max-width:480px) { body{padding:4px;} header{padding:10px 12px;} .message{padding:11px 12px;} .description,.compose,.status{padding-left:12px;padding-right:12px;} .compose-actions small{display:none;} }
+  </style>
+</head>
+<body>
+  <section class="card" aria-label="Await channel">
+    <header><div class="channel-name"><span id="symbol">#</span><h1 id="name">Channel</h1></div><div class="header-actions"><button id="message-action" type="button" aria-expanded="false" aria-controls="compose">Message</button><button id="refresh" type="button">Refresh</button></div></header>
+    <p id="description" class="description" hidden></p>
+    <div id="thread-bar" class="thread-bar" hidden><button id="back" type="button" aria-label="Back to channel">←</button><span>Thread</span></div>
+    <div id="messages" class="messages" aria-live="polite"><p class="empty">Loading conversation…</p></div>
+    <form id="compose" class="compose" hidden>
+      <label id="compose-label" for="draft">Message</label>
+      <textarea id="draft" name="message" maxlength="12000" placeholder="Write a message…" required></textarea>
+      <div class="compose-actions"><small id="identity">Posts appear as your connected agent</small><div class="compose-buttons"><button id="cancel" type="button">Cancel</button><button id="send" class="send" type="submit">Send</button></div></div>
+    </form>
+    <p id="status" class="status" role="status" hidden></p>
+  </section>
+  <script type="module">
+    const nodes = { name: document.querySelector('#name'), symbol: document.querySelector('#symbol'), description: document.querySelector('#description'), messages: document.querySelector('#messages'), refresh: document.querySelector('#refresh'), messageAction: document.querySelector('#message-action'), threadBar: document.querySelector('#thread-bar'), back: document.querySelector('#back'), compose: document.querySelector('#compose'), composeLabel: document.querySelector('#compose-label'), draft: document.querySelector('#draft'), identity: document.querySelector('#identity'), cancel: document.querySelector('#cancel'), send: document.querySelector('#send'), status: document.querySelector('#status') };
+    let view = null;
+    let threadId = null;
+    let threadMessages = null;
+    let postClientId = null;
+    let nextId = 0;
+    const pending = new Map();
+
+    const request = (method, params) => new Promise((resolve, reject) => {
+      const id = ++nextId;
+      pending.set(id, { resolve, reject });
+      window.parent.postMessage({ jsonrpc: '2.0', id, method, params }, '*');
+    });
+    const notify = (method, params) => window.parent.postMessage({ jsonrpc: '2.0', method, params }, '*');
+    const text = (tag, content, className) => {
+      const element = document.createElement(tag);
+      element.textContent = String(content ?? '');
+      if (className) element.className = className;
+      return element;
+    };
+    const formatTime = (value) => Number.isFinite(Number(value)) ? new Date(Number(value)).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+    const showStatus = (message, isError = false) => {
+      nodes.status.textContent = message;
+      nodes.status.hidden = !message;
+      nodes.status.classList.toggle('error', isError);
+    };
+    const setComposerOpen = (open) => {
+      nodes.compose.hidden = !open;
+      nodes.messageAction.setAttribute('aria-expanded', String(open));
+      nodes.messageAction.textContent = open ? 'Close' : threadId ? 'Reply' : 'Message';
+      if (open) nodes.draft.focus();
+    };
+    const hostStyleKeys = new Set(['--color-background-primary','--color-background-secondary','--color-background-tertiary','--color-text-primary','--color-text-secondary','--color-text-danger','--color-border-primary','--font-sans']);
+    const applyHostContext = (context) => {
+      if (context?.theme === 'light' || context?.theme === 'dark') document.documentElement.dataset.theme = context.theme;
+      const variables = context?.styles?.variables;
+      if (!variables || typeof variables !== 'object') return;
+      for (const [key, value] of Object.entries(variables)) {
+        if (!hostStyleKeys.has(key) || typeof value !== 'string') continue;
+        document.documentElement.style.setProperty(key, value);
+        if (key === '--color-background-primary') document.documentElement.dataset.hostStyles = '';
+      }
+    };
+    const render = () => {
+      if (!view) return;
+      nodes.name.textContent = view.channel?.name || 'Channel';
+      nodes.symbol.textContent = view.channel?.is_dm ? '↔' : view.channel?.is_private ? '⌑' : '#';
+      nodes.description.textContent = view.channel?.description || '';
+      nodes.description.hidden = !view.channel?.description;
+      nodes.threadBar.hidden = !threadId;
+      nodes.messageAction.textContent = nodes.compose.hidden ? threadId ? 'Reply' : 'Message' : 'Close';
+      nodes.composeLabel.textContent = threadId ? 'Reply in thread' : `Message ${view.channel?.is_dm ? '' : '#'}${view.channel?.name || 'channel'}`;
+      nodes.identity.textContent = view.viewer?.name ? `Posts appear as ${view.viewer.name}` : 'Posts appear as your connected agent';
+      nodes.messages.replaceChildren();
+      const people = new Map((view.members || []).map((member) => [member.account_id, member]));
+      const messages = threadId ? threadMessages : view.messages;
+      if (!messages?.length) {
+        nodes.messages.append(text('p', 'No messages yet.', 'empty'));
+        return;
+      }
+      for (const message of messages) {
+        const author = message.author || people.get(message.author_id);
+        const row = document.createElement('article');
+        row.className = 'message';
+        const avatar = text('span', (author?.name || 'Teammate').trim().slice(0, 1).toUpperCase(), `avatar${author?.kind === 'agent' ? ' agent' : ''}`);
+        avatar.setAttribute('aria-hidden', 'true');
+        const content = document.createElement('div');
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.append(text('strong', author?.name || 'Former member'));
+        if (author?.kind === 'agent') meta.append(text('span', 'Agent', 'agent-label'));
+        const date = text('time', formatTime(message.created_at));
+        date.dateTime = new Date(Number(message.created_at)).toISOString();
+        meta.append(date);
+        content.append(meta, text('p', message.deleted_at ? 'Message deleted' : message.body || '', 'body'));
+        if (message.attachments?.length) {
+          const files = document.createElement('div');
+          files.className = 'attachments';
+          for (const attachment of message.attachments) files.append(text('span', `▣ ${attachment.filename || 'File'}`, 'chip'));
+          content.append(files);
+        }
+        if (message.reactions?.length || message.reply_count) {
+          const extra = document.createElement('div');
+          extra.className = 'reactions';
+          for (const reaction of message.reactions || []) extra.append(text('span', `${reaction.emoji} ${reaction.count}`, 'chip'));
+          if (message.reply_count) extra.append(text('span', `${message.reply_count} ${message.reply_count === 1 ? 'reply' : 'replies'}`, 'chip'));
+          content.append(extra);
+        }
+        if (!threadId && !message.deleted_at) {
+          const reply = text('button', message.reply_count ? 'Open thread' : 'Reply', 'reply');
+          reply.type = 'button';
+          reply.addEventListener('click', () => openThread(message.id, !message.reply_count));
+          content.append(reply);
+        }
+        row.append(avatar, content);
+        nodes.messages.append(row);
+      }
+    };
+    const receive = (result) => {
+      const data = result?.structuredContent?.result;
+      if (data?.channel && Array.isArray(data.messages)) { view = data; render(); }
+    };
+    const callTool = async (name, args) => {
+      await ready;
+      const result = await request('tools/call', { name, arguments: args });
+      if (result?.isError) throw new Error(result.content?.[0]?.text || 'The action could not be completed.');
+      return result;
+    };
+    const refreshView = async () => {
+      if (!view?.channel?.id) return;
+      receive(await callTool('show_channel', { channel_id: view.channel.id }));
+      if (threadId) {
+        const result = await callTool('read_thread', { channel_id: view.channel.id, thread_id: threadId });
+        threadMessages = result?.structuredContent?.result;
+        if (!Array.isArray(threadMessages)) throw new Error('Could not load this thread.');
+        render();
+      }
+    };
+    const openThread = async (id, replyAfterOpen = false) => {
+      if (!view?.channel?.id || !id) return;
+      threadId = id;
+      threadMessages = null;
+      postClientId = null;
+      setComposerOpen(false);
+      showStatus('');
+      nodes.messages.replaceChildren(text('p', 'Loading thread…', 'empty'));
+      nodes.threadBar.hidden = false;
+      try {
+        const result = await callTool('read_thread', { channel_id: view.channel.id, thread_id: id });
+        threadMessages = result?.structuredContent?.result;
+        if (!Array.isArray(threadMessages)) throw new Error('Could not load this thread.');
+        render();
+        if (replyAfterOpen) setComposerOpen(true);
+      } catch (error) {
+        threadId = null;
+        render();
+        showStatus(error?.message || 'Could not load this thread.', true);
+      }
+    };
+    window.addEventListener('message', (event) => {
+      if (event.source !== window.parent || event.data?.jsonrpc !== '2.0') return;
+      const message = event.data;
+      if (typeof message.id === 'number' && pending.has(message.id)) {
+        const item = pending.get(message.id);
+        pending.delete(message.id);
+        message.error ? item.reject(message.error) : item.resolve(message.result);
+      } else if (message.method === 'ui/notifications/tool-result') receive(message.params);
+      else if (message.method === 'ui/notifications/host-context-changed') applyHostContext(message.params);
+    });
+    const ready = request('ui/initialize', { appInfo: { name: 'await-channel', version: '0.1.0' }, appCapabilities: {}, protocolVersion: '2026-01-26' })
+      .then((host) => { applyHostContext(host?.hostContext); notify('ui/notifications/initialized', {}); })
+      .catch(() => { nodes.messages.replaceChildren(text('p', 'This view could not connect. Try opening it again.', 'error')); });
+    nodes.back.addEventListener('click', () => { threadId = null; threadMessages = null; postClientId = null; setComposerOpen(false); showStatus(''); render(); });
+    nodes.messageAction.addEventListener('click', () => setComposerOpen(nodes.compose.hidden));
+    nodes.cancel.addEventListener('click', () => setComposerOpen(false));
+    nodes.draft.addEventListener('input', () => { postClientId = null; showStatus(''); });
+    nodes.draft.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); nodes.compose.requestSubmit(); }
+    });
+    nodes.compose.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const body = nodes.draft.value.trim();
+      if (!view?.channel?.id || !body || nodes.send.disabled) return;
+      nodes.send.disabled = true;
+      if (!postClientId) postClientId = crypto.randomUUID();
+      try {
+        const result = await callTool('post_message', { channel_id: view.channel.id, body, ...(threadId ? { thread_id: threadId } : {}), client_id: postClientId });
+        const proposed = result?.structuredContent?.result?.pending;
+        nodes.draft.value = '';
+        postClientId = null;
+        showStatus(proposed ? 'Sent for owner review.' : 'Message sent.');
+        setComposerOpen(false);
+        if (!proposed) {
+          try { await refreshView(); }
+          catch { showStatus('Message sent. Refresh to see it.'); }
+        }
+      } catch (error) { showStatus(error?.message || 'Could not send. Your draft is still here.', true); }
+      finally { nodes.send.disabled = false; }
+    });
+    nodes.refresh.addEventListener('click', async () => {
+      if (!view?.channel?.id) return;
+      nodes.refresh.disabled = true;
+      try {
+        await refreshView();
+        showStatus('');
+      } catch (error) {
+        showStatus(error?.message || 'Refresh failed. Try again.', true);
+      } finally { nodes.refresh.disabled = false; }
+    });
+  </script>
+</body>
+</html>

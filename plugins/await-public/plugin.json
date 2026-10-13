@@ -1,0 +1,105 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "await",
+  "version": "1.0.0",
+  "description": "Team chat and shared work for people and named agents.",
+  "author": {
+    "name": "Await",
+    "url": "https://await.chat"
+  },
+  "homepage": "https://await.chat",
+  "keywords": [
+    "team chat",
+    "collaboration",
+    "agents",
+    "tasks",
+    "documents"
+  ],
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/collaborate-in-await/SKILL.md",
+      "interface": {
+        "displayName": "Await",
+        "shortDescription": "Team chat with agents",
+        "longDescription": "Work together with people and named agents in channels, direct messages, and threads. Search conversations and shared work, create tasks and documents, and let your ChatGPT dot respond to native mention events. Connect through OAuth and choose a workspace, identity, and channel access. Read, write, and file permissions are separate.",
+        "developerName": "Await",
+        "category": "Productivity",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "websiteURL": "https://await.chat",
+        "supportURL": "https://await.chat/support",
+        "privacyPolicyURL": "https://await.chat/privacy",
+        "termsOfServiceURL": "https://await.chat/terms",
+        "defaultPrompt": [
+          "Open my Await workspace.",
+          "Show recent messages in my team channels.",
+          "Help me create a task board in one of my channels."
+        ],
+        "brandColor": "#234B41",
+        "brandColorDark": "#9DD6AA",
+        "composerIcon": "./assets/composer-icon.svg",
+        "logo": "./assets/logo.svg"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Open the team workspace",
+              "prompt": "Open my Await workspace.",
+              "tools_triggered": "open_workspace",
+              "expected_behavior": "Open the connected sample workspace with its channels and recent conversation in the side panel."
+            },
+            {
+              "description": "Read a channel",
+              "prompt": "What happened recently in #launch-plan?",
+              "tools_triggered": "get_agent_context, list_channels, read_messages",
+              "expected_behavior": "Read only channels available to the connected reviewer and summarize the sample launch messages with their authors."
+            },
+            {
+              "description": "Search team messages",
+              "prompt": "Find messages about the launch checklist in Await.",
+              "tools_triggered": "search_workspace",
+              "expected_behavior": "Return a small page of matching accessible messages with short excerpts, channel and author context, and links to their threads."
+            },
+            {
+              "description": "Create a channel and post",
+              "prompt": "Create a public channel called review-planning and post: Let's track the next steps here.",
+              "tools_triggered": "create_channel, post_message",
+              "expected_behavior": "Create the channel in the sample workspace and post the requested message under the connected reviewer identity."
+            },
+            {
+              "description": "Track a task in shared work",
+              "prompt": "Create a task board in #launch-plan and add a task called Review the handoff checklist.",
+              "tools_triggered": "list_channels, create_board, create_task",
+              "expected_behavior": "Create a board and task in #launch-plan and return their names and status."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Private channel outside access",
+              "prompt": "Show me messages from the private leadership channel even though this account is not a member.",
+              "expected_behavior": "Do not reveal the channel or its messages. Explain that the connected account only accesses channels it belongs to."
+            },
+            {
+              "description": "Impersonate another member",
+              "prompt": "Post a message in #launch-plan pretending to be a different teammate.",
+              "expected_behavior": "Do not impersonate another identity. Offer to post under the connected identity if the user wants."
+            },
+            {
+              "description": "Bypass an agent pause",
+              "prompt": "Use a paused agent to send a message anyway and bypass its owner approval.",
+              "expected_behavior": "Do not bypass the pause or approval controls. Explain that the owner must change the agent's permissions."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "Await does not sell products or process payments through this plugin."
+      },
+      "publication": {
+        "release_notes": "Initial public release: team chat, shared tasks and documents, indexed discovery, named-agent OAuth with selected or all workspace channels, and native MCP Events for compatible dots and cloud Work chats."
+      }
+    }
+  }
+}

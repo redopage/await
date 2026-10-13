@@ -1,0 +1,530 @@
+{
+  "executed_at": "2026-10-11T16:49:38.880Z",
+  "origin": "http://127.0.0.1:5173",
+  "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+  "agents": [
+    {
+      "id": "aa897329-9f28-4910-8d77-082d05bbfa91",
+      "name": "API teammate",
+      "provider": "codex"
+    },
+    {
+      "id": "8c79a3a5-14b6-4834-97a6-062d253477e4",
+      "name": "Interface teammate",
+      "provider": "claude"
+    }
+  ],
+  "outcome": "integrated",
+  "execution": "Authenticated codex and claude CLI models, project-scoped MCP tools, Cloudflare hosted workspaces",
+  "approval": "Test harness acting as the local human fixture reviewer",
+  "acceptance_tests_unchanged": true,
+  "reports": [
+    {
+      "provider": "codex",
+      "report": "Implemented and submitted `src/reset-api.ts`.\n\n- Commit: `3376f7dff2b59e6b589fd2812ee285e589bd93b6`\n- Candidate: `69d6f433-34c8-471e-8d5d-c7ab88efd8dc`\n- Contract: returns `{ expiresAt }`, exactly 15 minutes after `now`\n- Evidence: number and `Date` input assertions passed, plus `git diff --check`\n- Combined tests remain pending integration with the interface teammate’s candidate.",
+      "tool_calls": [
+        {
+          "tool": "get_agent_context",
+          "status": "completed",
+          "arguments": {}
+        },
+        {
+          "tool": "read_project",
+          "status": "completed",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d"
+          }
+        },
+        {
+          "tool": "post_project_event",
+          "status": "failed",
+          "arguments": {
+            "body": "API teammate proposes the shared expiry contract: resetToken(now) returns an ISO 8601 UTC string equal to exactly 15 minutes after `now`. The form should treat expiry as valid only while current time is strictly earlier than the parsed timestamp, so equality is expired, and invalid timestamps should enter recovery. Please confirm or flag concerns before implementation.",
+            "client_id": "api-expiry-contract-proposal-v1",
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d"
+          }
+        },
+        {
+          "tool": "start_project_run",
+          "status": "failed",
+          "arguments": {
+            "client_id": "api-teammate-run-e7c5e6c1-v1",
+            "paths": [
+              "src/reset-api.ts"
+            ],
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "task_id": "e7c5e6c1-e20a-4bfa-bdbc-eae54473568a",
+            "title": "Reset API and expiry"
+          }
+        },
+        {
+          "tool": "post_project_event",
+          "status": "completed",
+          "arguments": {
+            "body": "API teammate proposes the shared expiry contract: resetToken(now) returns an ISO 8601 UTC string equal to exactly 15 minutes after `now`. The form should treat expiry as valid only while current time is strictly earlier than the parsed timestamp, so equality is expired, and invalid timestamps should enter recovery. Please confirm or flag concerns before implementation.",
+            "client_id": "6d83d3db-7d44-4577-ad16-492f7583141c",
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d"
+          }
+        },
+        {
+          "tool": "start_project_run",
+          "status": "completed",
+          "arguments": {
+            "client_id": "a3aa0b8d-a158-42d5-a205-f6d406109792",
+            "paths": [
+              "src/reset-api.ts"
+            ],
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "task_id": "e7c5e6c1-e20a-4bfa-bdbc-eae54473568a",
+            "title": "Reset API and expiry"
+          }
+        },
+        {
+          "tool": "execute_project_command",
+          "status": "completed",
+          "arguments": {
+            "client_id": "6675c996-072e-45b2-8171-c4b3243d53d9",
+            "command": "pwd && find . -maxdepth 3 -type f -not -path './.git/*' -print && for f in package.json tsconfig.json reset.test.mjs src/reset-form.ts src/reset-api.ts; do if [ -f \"$f\" ]; then echo \"FILE:$f\"; sed -n '1,240p' \"$f\"; fi; done",
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "run_id": "a3aa0b8d-a158-42d5-a205-f6d406109792"
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "completed",
+          "arguments": {
+            "after": 2,
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d"
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "completed",
+          "arguments": {
+            "after": 9,
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d"
+          }
+        },
+        {
+          "tool": "execute_project_command",
+          "status": "completed",
+          "arguments": {
+            "client_id": "875a8adc-d9e6-4439-bd14-abbaeadc52fc",
+            "command": "set -e\nmkdir -p src\ncat > src/reset-api.ts <<'EOF'\nconst TOKEN_LIFETIME_MS = 15 * 60 * 1000;\n\nexport interface ResetToken {\n  expiresAt: string;\n}\n\nexport function resetToken(now: number | Date): ResetToken {\n  const issuedAt = now instanceof Date ? now.getTime() : now;\n\n  return {\n    expiresAt: new Date(issuedAt + TOKEN_LIFETIME_MS).toISOString(),\n  };\n}\nEOF\nnode --input-type=module - <<'EOF'\nimport assert from 'node:assert/strict';\nimport { resetToken } from './src/reset-api.ts';\nassert.deepEqual(resetToken(0), { expiresAt: '1970-01-01T00:15:00.000Z' });\nassert.deepEqual(resetToken(new Date('2026-10-11T12:00:00.000Z')), { expiresAt: '2026-10-11T12:15:00.000Z' });\nconsole.log('resetToken checks passed');\nEOF\ngit diff --check\ngit diff -- src/reset-api.ts",
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "run_id": "a3aa0b8d-a158-42d5-a205-f6d406109792"
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "completed",
+          "arguments": {
+            "after": 10,
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d"
+          }
+        },
+        {
+          "tool": "publish_candidate",
+          "status": "completed",
+          "arguments": {
+            "checks": "Hosted isolated API checks passed: resetToken(0) returned 1970-01-01T00:15:00.000Z; Date input advanced exactly 15 minutes; git diff --check passed. Combined reset.test.mjs was not run in this isolated candidate because src/reset-form.ts belongs to the pending interface teammate candidate.",
+            "commit": "3376f7dff2b59e6b589fd2812ee285e589bd93b6",
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "requirements_revision": 1,
+            "run_id": "a3aa0b8d-a158-42d5-a205-f6d406109792",
+            "summary": "Implement resetToken(now) with an expiresAt ISO timestamp exactly 15 minutes after the supplied epoch-millisecond or Date issue time."
+          }
+        },
+        {
+          "tool": "post_project_event",
+          "status": "completed",
+          "arguments": {
+            "body": "API implementation completed at commit 3376f7dff2b59e6b589fd2812ee285e589bd93b6. It exports resetToken(now: number | Date), returning { expiresAt } as a UTC ISO string exactly 900000 ms later. Isolated API assertions and git diff --check passed. Combined tests remain pending integration with the interface candidate.",
+            "client_id": "54625fdf-0a1a-4852-9fbe-8c785eb9c611",
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d"
+          }
+        }
+      ]
+    },
+    {
+      "provider": "claude",
+      "report": "I wrote `resetState` in `src/reset-form.ts` and submitted it as a candidate. Both my part and my teammate's API part pass their own separate checks. Whether they pass the project test together is not known yet: I started the combined check, but it was still \"preparing\" each time I looked, with no result.\n\n**What I submitted**\n- Commit `57bc4b0b7baeaa7f6d5d67a3afe82eef62d75275` on branch `codex/5b1f2c3e-8a4d-4e7b-9c1a-2f3e4d5a6b71`, submitted as candidate `383efcb3-838c-4895-9c67-c10c55258f05` against requirements revision 1. The only file it changes is `src/reset-form.ts`, which it adds.\n- `resetState(expiresAt, now)` returns `'Choose a new password'` only when `expiresAt` is a valid timestamp and `now` is strictly earlier. In every other case it returns `'Request a new reset link'`: exactly at expiry, after expiry, and when the timestamp is missing, empty or invalid.\n- `now` is a time in milliseconds, which is what the test passes; a `Date` also works.\n\n**Agreeing the expiry format with the API teammate**\n- We each proposed a format and they matched: an ISO 8601 UTC timestamp exactly 15 minutes ahead, where the link counts as expired at the exact moment of expiry.\n- My first note said `now` would be a `Date` and didn't say what shape the API returns. After reading `reset.test.mjs` I posted a correction: the API returns `{ expiresAt }` and `now` is in milliseconds.\n- The teammate then built to that. Their candidate is `69d6f433` at commit `3376f7d`, adding `src/reset-api.ts`.\n\n**Test results**\n- **My check (my workspace, Node v24.20.0):** a separate script of eight checks on `resetState` printed `form checks ok` with exit code 0. It covered just before, at and after expiry, invalid, empty and missing timestamps, an invalid `now`, and a `Date` input. I did not run `node --test reset.test.mjs` there, because the test also imports `src/reset-api.ts`, which only exists in the teammate's workspace.\n- **Teammate's check:** they report their own API checks passed.\n- **Combined check:** I started an independent run of `node --test reset.test.mjs` on both candidates together (integration `1a7e0000-0001-4b2c-8d3e-666666666666`).\n\n**Next steps**\n1. Check the combined run's result in `read_project`.\n2. If it passes, a human reviews it and publishes it.\n\nI left my workspace paused with a progress note so the work can be resumed later. I did not change the acceptance tests.",
+      "tool_calls": [
+        {
+          "tool": "get_agent_context",
+          "status": "requested",
+          "arguments": {}
+        },
+        {
+          "tool": "read_project_handoff",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d"
+          }
+        },
+        {
+          "tool": "start_project_run",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "client_id": "5b1f2c3e-8a4d-4e7b-9c1a-2f3e4d5a6b71",
+            "title": "Reset form and recovery",
+            "task_id": "b0600aca-cd8e-4ec4-ae34-1e1e68b330eb",
+            "paths": [
+              "src/reset-form.ts"
+            ]
+          }
+        },
+        {
+          "tool": "execute_project_command",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "run_id": "5b1f2c3e-8a4d-4e7b-9c1a-2f3e4d5a6b71",
+            "client_id": "a1c2e3f4-0001-4b2c-8d3e-111111111111",
+            "command": "git log --oneline -5; find . -path ./.git -prune -o -type f -print; for f in $(find . -path ./.git -prune -o -path ./node_modules -prune -o -type f -print); do echo \"=== $f\"; head -c 4000 \"$f\"; done"
+          }
+        },
+        {
+          "tool": "post_project_event",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "client_id": "c0ffee00-0001-4a2b-9c3d-222222222222",
+            "body": "Interface teammate proposing expiry contract: API returns expiresAt as an ISO 8601 UTC string (Date.toISOString(), e.g. \"2026-10-11T12:15:00.000Z\") exactly 15 minutes after issue. Form exports resetState(expiresAt: string, now: Date) and treats the link as valid only when Date.parse(expiresAt) is a finite number and now < expiresAt; at or after expiry, or for unparseable timestamps, it offers recovery (request a new link). API teammate, please confirm or counter."
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 1
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 4
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 4
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 4
+          }
+        },
+        {
+          "tool": "post_project_event",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "client_id": "c0ffee00-0002-4a2b-9c3d-333333333333",
+            "body": "Interface teammate confirms: resetToken(now) returns ISO 8601 UTC string exactly now + 15 min. resetState(expiresAt, now) in src/reset-form.ts: valid only when the timestamp parses and now is strictly earlier; equality is expired; unparseable or non-string input enters recovery. Implementing against this now."
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 5
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 7
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 7
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 7
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 8
+          }
+        },
+        {
+          "tool": "execute_project_command",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "run_id": "5b1f2c3e-8a4d-4e7b-9c1a-2f3e4d5a6b71",
+            "client_id": "a1c2e3f4-0002-4b2c-8d3e-111111111112",
+            "command": "set -e\nmkdir -p src\ncat > src/reset-form.ts <<'EOF'\nexport const READY = 'Choose a new password';\nexport const RECOVER = 'Request a new reset link';\n\n// A link is usable only while now is strictly earlier than expiresAt.\n// Expiry at the exact instant, or any unparseable timestamp, offers recovery.\nexport function resetState(expiresAt: unknown, now: number | Date): string {\n  const expiry = typeof expiresAt === 'string' ? Date.parse(expiresAt) : NaN;\n  const current = now instanceof Date ? now.getTime() : now;\n  if (!Number.isFinite(expiry) || typeof current !== 'number' || !Number.isFinite(current)) {\n    return RECOVER;\n  }\n  return current < expiry ? READY : RECOVER;\n}\nEOF\nnode --version\ncat > /tmp/form-check.mjs <<'EOF'\nimport assert from 'node:assert/strict';\nconst {resetState} = await import(process.argv[2]);\nconst e = new Date(900000).toISOString();\nassert.equal(resetState(e, 899999), 'Choose a new password');\nassert.equal(resetState(e, 900000), 'Request a new reset link');\nassert.equal(resetState(e, 900001), 'Request a new reset link');\nassert.equal(resetState('invalid', 0), 'Request a new reset link');\nassert.equal(resetState('', 0), 'Request a new reset link');\nassert.equal(resetState(undefined, 0), 'Request a new reset link');\nassert.equal(resetState(e, new Date(0)), 'Choose a new password');\nassert.equal(resetState(e, NaN), 'Request a new reset link');\nconsole.log('form checks ok');\nEOF\nnode /tmp/form-check.mjs \"$PWD/src/reset-form.ts\"\ngit status --short"
+          }
+        },
+        {
+          "tool": "post_project_event",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "client_id": "c0ffee00-0003-4a2b-9c3d-444444444444",
+            "body": "Interface teammate correction after reading reset.test.mjs: the test calls resetToken(0) and reads t.expiresAt, so the API should return an object { expiresAt: string } (ISO, now + 900000 ms), with now as epoch milliseconds. resetState(expiresAt, now) takes now as epoch ms (Date also accepted) and returns 'Choose a new password' when now < expiry, else 'Request a new reset link' (including invalid timestamps). Node runs the .ts files directly via type stripping, so keep to erasable TypeScript syntax (no enums or namespaces)."
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 9
+          }
+        },
+        {
+          "tool": "read_candidate_files",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "run_id": "5b1f2c3e-8a4d-4e7b-9c1a-2f3e4d5a6b71",
+            "commit": "57bc4b0b7baeaa7f6d5d67a3afe82eef62d75275"
+          }
+        },
+        {
+          "tool": "publish_candidate",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "run_id": "5b1f2c3e-8a4d-4e7b-9c1a-2f3e4d5a6b71",
+            "commit": "57bc4b0b7baeaa7f6d5d67a3afe82eef62d75275",
+            "requirements_revision": 1,
+            "summary": "Add src/reset-form.ts exporting resetState(expiresAt, now). Returns 'Choose a new password' only when expiresAt parses as a timestamp and now (epoch ms or Date) is strictly earlier; returns 'Request a new reset link' at or after expiry and for invalid, empty, or non-string timestamps. Matches the agreed contract with the API teammate (resetToken(now) -> { expiresAt: ISO string, now + 900000 ms }).",
+            "checks": "Author-run in this workspace on Node v24.20.0: standalone assertion script against src/reset-form.ts (899999 -> ready, 900000 and 900001 -> recover, 'invalid', '', undefined, NaN now -> recover, Date now accepted) printed 'form checks ok', exit 0. The full node --test reset.test.mjs was NOT run here because src/reset-api.ts belongs to the API teammate and is not in this run; the combined check needs an integration with their candidate."
+          }
+        },
+        {
+          "tool": "read_candidate_files",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "run_id": "5b1f2c3e-8a4d-4e7b-9c1a-2f3e4d5a6b71",
+            "commit": "57bc4b0b7baeaa7f6d5d67a3afe82eef62d75275"
+          }
+        },
+        {
+          "tool": "checkpoint_project_run",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "run_id": "5b1f2c3e-8a4d-4e7b-9c1a-2f3e4d5a6b71",
+            "client_id": "d00d0000-0001-4a2b-9c3d-555555555555",
+            "expected_revision": 1,
+            "status": "sleeping",
+            "cursor": 13,
+            "paths": [
+              "src/reset-form.ts"
+            ],
+            "checkpoint": "Submitted candidate 383efcb3 at commit 57bc4b0 (src/reset-form.ts). Contract agreed in events 5, 7, 11: resetToken(nowMs) -> { expiresAt: ISO now+900000 }, resetState(expiresAt, nowMs) strict-less-than is ready, else recovery. Waiting on API teammate candidate to prepare an integration running node --test reset.test.mjs."
+          }
+        },
+        {
+          "tool": "checkpoint_project_run",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "run_id": "5b1f2c3e-8a4d-4e7b-9c1a-2f3e4d5a6b71",
+            "client_id": "d00d0000-0001-4a2b-9c3d-555555555555",
+            "expected_revision": 2,
+            "status": "sleeping",
+            "cursor": 13,
+            "paths": [
+              "src/reset-form.ts"
+            ],
+            "checkpoint": "Submitted candidate 383efcb3 at commit 57bc4b0 (src/reset-form.ts). Contract agreed in events 5, 7, 11: resetToken(nowMs) -> { expiresAt: ISO now+900000 }, resetState(expiresAt, nowMs) strict-less-than is ready, else recovery. Waiting on API teammate candidate to prepare an integration running node --test reset.test.mjs."
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 13
+          }
+        },
+        {
+          "tool": "prepare_project_integration",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "client_id": "1a7e0000-0001-4b2c-8d3e-666666666666",
+            "candidate_ids": [
+              "69d6f433-34c8-471e-8d5d-c7ab88efd8dc",
+              "383efcb3-838c-4895-9c67-c10c55258f05"
+            ]
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 19
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 20
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 20
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 20
+          }
+        },
+        {
+          "tool": "read_project",
+          "status": "requested",
+          "arguments": {
+            "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+            "after": 20
+          }
+        }
+      ]
+    }
+  ],
+  "integration": {
+    "id": "1a7e0000-0001-4b2c-8d3e-666666666666",
+    "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+    "actor_id": "8c79a3a5-14b6-4834-97a6-062d253477e4",
+    "repository": "6fd621bd-8841-444b-bac4-18665fbb34ac-i-1a7e0000-0001-4b2c-8d3e-666666666666",
+    "candidate_ids": [
+      "69d6f433-34c8-471e-8d5d-c7ab88efd8dc",
+      "383efcb3-838c-4895-9c67-c10c55258f05"
+    ],
+    "base_commit": "e17eb5002c84a81dbcc7e19f54e9a3c98ce74897",
+    "commit_hash": "ac27e85fff26770f09da145902ba67b701747341",
+    "requirements_revision": 1,
+    "check_command": "node --test reset.test.mjs",
+    "status": "integrated",
+    "result": {
+      "status": "complete",
+      "stdout": "✔ API and form agree on expiry (83.457491ms)\n✔ Invalid timestamp recovers (0.221881ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 399.26751\n",
+      "stderr": "",
+      "exit_code": 0,
+      "commit": "ac27e85fff26770f09da145902ba67b701747341",
+      "started_at": 1791737376955,
+      "finished_at": 1791737401112,
+      "image": "cloudflare/debian-trixie"
+    },
+    "created_at": 1791737351047,
+    "reviewed_by": "e18cef2a-1bb8-4675-93fb-ae9aff8e293e"
+  },
+  "base_commit": "ac27e85fff26770f09da145902ba67b701747341",
+  "tasks": [
+    {
+      "id": "e7c5e6c1-e20a-4bfa-bdbc-eae54473568a",
+      "board_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+      "title": "Reset API and expiry",
+      "description": "Return an ISO timestamp exactly 15 minutes after issue.",
+      "status": "done",
+      "priority": 2,
+      "assignee_id": "aa897329-9f28-4910-8d77-082d05bbfa91",
+      "due_at": null,
+      "created_by": "e18cef2a-1bb8-4675-93fb-ae9aff8e293e",
+      "created_at": 1791737270949,
+      "updated_at": 1791737418170,
+      "completed_at": 1791737418170
+    },
+    {
+      "id": "b0600aca-cd8e-4ec4-ae34-1e1e68b330eb",
+      "board_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+      "title": "Reset form and recovery",
+      "description": "Use the agreed expiry contract and recover from invalid or expired links.",
+      "status": "done",
+      "priority": 2,
+      "assignee_id": "8c79a3a5-14b6-4834-97a6-062d253477e4",
+      "due_at": null,
+      "created_by": "e18cef2a-1bb8-4675-93fb-ae9aff8e293e",
+      "created_at": 1791737270950,
+      "updated_at": 1791737418171,
+      "completed_at": 1791737418171
+    }
+  ],
+  "branch_operations": [
+    {
+      "id": "2b3b002e-8a28-40cc-a942-89a81f8314d6",
+      "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+      "run_id": "a3aa0b8d-a158-42d5-a205-f6d406109792",
+      "actor_id": "e18cef2a-1bb8-4675-93fb-ae9aff8e293e",
+      "command": "{\"commit\":\"3376f7dff2b59e6b589fd2812ee285e589bd93b6\"}",
+      "status": "complete",
+      "result": {
+        "status": "complete",
+        "stdout": "3376f7dff2b59e6b589fd2812ee285e589bd93b6\trefs/heads/await/archive/codex/a3aa0b8d-a158-42d5-a205-f6d406109792/3376f7dff2b59e6b589fd2812ee285e589bd93b6\n",
+        "stderr": "",
+        "exit_code": 0,
+        "commit": "3376f7dff2b59e6b589fd2812ee285e589bd93b6",
+        "started_at": 1791737419502,
+        "finished_at": 1791737435126,
+        "image": "cloudflare/debian-trixie"
+      },
+      "created_at": 1791737419189,
+      "kind": "delete_branch"
+    },
+    {
+      "id": "c35ce73c-96b5-480b-ba20-bc394105109f",
+      "project_id": "cb309b05-aa45-44a2-9881-946c7e607f8d",
+      "run_id": "a3aa0b8d-a158-42d5-a205-f6d406109792",
+      "actor_id": "e18cef2a-1bb8-4675-93fb-ae9aff8e293e",
+      "command": "{\"commit\":\"3376f7dff2b59e6b589fd2812ee285e589bd93b6\"}",
+      "status": "complete",
+      "result": {
+        "status": "complete",
+        "stdout": "3376f7dff2b59e6b589fd2812ee285e589bd93b6\trefs/heads/await/archive/codex/a3aa0b8d-a158-42d5-a205-f6d406109792/3376f7dff2b59e6b589fd2812ee285e589bd93b6\n3376f7dff2b59e6b589fd2812ee285e589bd93b6\trefs/heads/codex/a3aa0b8d-a158-42d5-a205-f6d406109792\n",
+        "stderr": "",
+        "exit_code": 0,
+        "commit": "3376f7dff2b59e6b589fd2812ee285e589bd93b6",
+        "started_at": 1791737438370,
+        "finished_at": 1791737453688,
+        "image": "cloudflare/debian-trixie"
+      },
+      "created_at": 1791737438022,
+      "kind": "restore_branch"
+    }
+  ]
+}
