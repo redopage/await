@@ -1,3 +1,6 @@
 export type HostedResult = { status: string; exit_code?: number; stdout?: string; stderr?: string; commit?: string; started_at?: number; finished_at?: number; image?: string; error?: string };
 export type HostedJob = { id: string; project_id: string; run_id: string; actor_id: string; kind: 'execute' | 'delete_branch' | 'restore_branch'; command: string; status: string; result: HostedResult; created_at: number };
 export type Integration = { id: string; project_id: string; actor_id: string; repository: string; candidate_ids: string[]; base_commit: string; commit_hash: string; requirements_revision: number; check_command: string; status: 'preparing' | 'checking' | 'ready' | 'failed' | 'publishing' | 'integrated' | 'stale'; result: HostedResult; created_at: number; reviewed_by: string | null };
+export type CompactHostedResult = Omit<HostedResult, 'stdout' | 'stderr' | 'error'> & { output_omitted: true };
+export type CompactHostedJob = Omit<HostedJob, 'command' | 'result'> & { command_omitted: true; result: CompactHostedResult };
+export type CompactIntegration = Omit<Integration, 'check_command' | 'result'> & { command_omitted: true; result: CompactHostedResult };

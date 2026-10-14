@@ -501,7 +501,7 @@ app.all('/api/workspaces/:id/collab/*', async (c) => {
   const access = await requireWorkspace(c, c.req.param('id'));
   if (access instanceof Response) return access;
   const suffix = new URL(c.req.url).pathname.split('/collab')[1] ?? '';
-  if (!/^\/(?:projects(?:\/[a-f0-9-]{36}(?:\/(?:integrations(?:\/[a-f0-9-]{36}\/(?:files|publish))?|requirements|handoff|events|runs(?:\/[a-f0-9-]{36}\/(?:branch|execute|cancel|token|checkpoint|candidates|files))?|candidates\/[a-f0-9-]{36}\/review))?)?|overview|boards(?:\/[a-f0-9-]{36}(?:\/tasks)?)?|tasks(?:\/[a-f0-9-]{36})?|documents(?:\/[a-f0-9-]{36})?)$/.test(suffix)) return error('Not found.', 404);
+  if (!/^\/(?:projects(?:\/[a-f0-9-]{36}(?:\/(?:integrations(?:\/[a-f0-9-]{36}(?:\/(?:files|publish))?)?|jobs\/[a-f0-9-]{36}|requirements|handoff|events|runs(?:\/[a-f0-9-]{36}\/(?:branch|execute|cancel|token|checkpoint|candidates|files|tree|source-file))?|candidates\/[a-f0-9-]{36}\/review))?)?|overview|boards(?:\/[a-f0-9-]{36}(?:\/tasks)?)?|tasks(?:\/[a-f0-9-]{36})?|documents(?:\/[a-f0-9-]{36})?)$/.test(suffix)) return error('Not found.', 404);
   const path = `${suffix}${new URL(c.req.url).search}`;
   const body = ['GET', 'HEAD'].includes(c.req.method) ? undefined : await c.req.text();
   return inside(c.env, c.req.param('id'), access.account.id, path, { method: c.req.method, headers: { 'content-type': 'application/json' }, body });

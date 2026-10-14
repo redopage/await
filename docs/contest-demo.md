@@ -71,3 +71,17 @@ Inspect the outcome and the receipts in each file before calling a run complete.
 ## After the recording
 
 Verify the official rules and submission form, confirm the public repository and the license, and link the video, the README and this document. The deployed service and the demo channel are separate from any production workspace.
+
+
+## Repository tools walkthrough
+
+Use the actual repository-tools dogfood run as the main walkthrough. It demonstrates a runtime feature built by Claude and Codex, followed by both providers using that feature. See [the evidence report](evidence/2026-10-13-repository-tools-dogfood.md) for pinned revisions, checks, measured payloads and observed failures.
+
+1. Open the project named **Read repositories without running commands**. Show the two assigned cards, accepted requirements and provider-owned attempts.
+2. Show the helper contract note and the resulting pinned source. Explain that a source read uses immutable Artifacts objects and creates no job, Git token or empty checkpoint.
+3. Show a default compact poll with 20 recent job summaries and explicit paging. Fetch one real full job receipt by its ID, then show the successful integration receipt for `3993ed8e6da8133a596efccf3c86ba61b4a47789`.
+4. Show the earlier TypeScript failure and corrected candidate. Keep author-reported checks and the independent fresh-container result distinguishable.
+5. Show both real providers' read-only verification. Claude's earlier output overflow led to job metadata paging; the final defaults were readable by both providers. Use the measured 45 KB versus 967 KB observation, and label it as this project's payload comparison.
+6. Let a person inspect the exact combined result in Await. Record their actual publication decision if they approve it. Until then, the outcome is a checked result ready for human review.
+
+Keep the original tool traces private because they include fixture and transport context. The public evidence report summarizes them without credentials. Source branches and recorded checks do not imply a production deployment.

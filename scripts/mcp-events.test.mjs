@@ -1311,7 +1311,8 @@ function projectArtifacts(f) {
         createToken: async (scope, ttl) => { tokens.push({ name, scope, ttl }); return { id: 'issued-token', plaintext: 'private-token', expiresAt: '2026-10-11' }; },
         log: async () => [{ hash: repos.get(name).head }],
         readCommit: async (hash) => hash === root ? { hash, treeHash: rootTree, parents: [] } : hash === head ? { hash, treeHash: headTree, parents: [root] } : hash === foreign ? { hash, treeHash: headTree, parents: [] } : null,
-        readTree: async (hash) => [{ name: 'auth.ts', type: 'blob', hash: hash === rootTree ? '1'.repeat(40) : '2'.repeat(40) }],
+        readTree: async (hash) => [{ name: 'auth.ts', type: 'blob', hash: hash === rootTree ? '1'.repeat(40) : '2'.repeat(40), size: 26 }],
+        readBlob: async (hash) => new Blob([hash === '1'.repeat(40) ? 'export const expiry = 0;' : 'export const expiry = 900;']),
         readFile: async ({ ref }) => new Blob([ref === root ? 'export const expiry = 0;' : 'export const expiry = 900;']),
         [Symbol.dispose]() {},
       };
@@ -1537,6 +1538,45 @@ test('project cancellation while token issuance waits revokes the new token befo
     f.env.ARTIFACTS.get = async (name) => { const repo = await get(name), create = repo.createToken; repo.createToken = async (...args) => { await a.request('alice', `${route}/cancel`, { client_id: crypto.randomUUID(), expected_revision: 1, reason: 'Stop this attempt.' }); return create(...args); }; return repo; };
     const result = await a.request('watcher', `${route}/token`, {});
     assert.equal(result.status, 400); assert.ok(!result.data.token); assert.ok(a.revoked.includes('issued-token'));
+  } finally { await f.dispose(); }
+});
+
+test('project event pages preserve compact and legacy defaults, traversal, and future cursor recovery', async () => {
+  const f = fixture();
+  try {
+    const a = projectArtifacts(f), { project } = await a.create(), base = `/projects/${project.id}`;
+    const longBody = 'complete-note-' + 'x'.repeat(2048);
+    for (let n = 0; n < 104; n++) f.sql.exec(
+      'INSERT INTO project_events(id,project_id,actor_id,type,run_id,data,client_id,created_at) VALUES(?,?,?,?,?,?,?,?)',
+      crypto.randomUUID(), project.id, 'watcher', 'coordination.note', null,
+      JSON.stringify({ body: n === 17 ? longBody : `Page note ${n}` }), crypto.randomUUID(), Date.now() + n);
+    const expected = f.sql.exec('SELECT seq FROM project_events WHERE project_id=? ORDER BY seq', project.id).map(row => row.seq);
+
+    const compact = (await a.request('watcher', `${base}?include_job_output=false`)).data;
+    assert.equal(compact.events.length, 20); assert.equal(compact.has_more, true);
+    assert.equal(compact.events.find(event => event.data.body === longBody)?.data.body, longBody);
+    const legacy = (await a.request('watcher', base)).data;
+    assert.equal(legacy.events.length, 100); assert.equal(legacy.has_more, true);
+    const explicit = (await a.request('watcher', `${base}?include_job_output=false&event_limit=7`)).data;
+    assert.equal(explicit.events.length, 7); assert.equal(explicit.has_more, true);
+    assert.equal((await a.request('watcher', `${base}?event_limit=101`)).status, 400);
+    assert.equal((await a.request('watcher', `${base}?event_limit=0`)).status, 400);
+
+    const seen = []; let after = 0, page;
+    do {
+      page = (await a.request('watcher', `${base}?include_job_output=false&event_limit=20&after=${after}`)).data;
+      seen.push(...page.events.map(event => event.seq));
+      after = page.next_cursor;
+    } while (page.has_more);
+    assert.deepEqual(seen, expected);
+
+    const future = (await a.request('watcher', `${base}?include_job_output=false&after=999999999`)).data;
+    assert.deepEqual(future.events, []); assert.equal(future.has_more, false);
+    assert.equal(future.next_cursor, future.snapshot_cursor);
+    await a.request('watcher', `${base}/events`, { client_id: crypto.randomUUID(), body: 'Visible after future cursor recovery' });
+    const recovered = (await a.request('watcher', `${base}?include_job_output=false&after=${future.next_cursor}`)).data;
+    assert.equal(recovered.events.length, 1);
+    assert.equal(recovered.events[0].data.body, 'Visible after future cursor recovery');
   } finally { await f.dispose(); }
 });
 
@@ -1795,4 +1835,121 @@ test('hosted computer receipts prevent arbitrary command replay and isolate trus
     new Computer(f.ctx,f.env);await f.settle();
     assert.equal(destroyed,1);assert.equal(JSON.parse(f.sql.exec("SELECT result FROM jobs WHERE id='interrupted'")[0].result).status,'interrupted');
   }finally {await f.dispose();}
+});
+
+
+test('project compact polling and targeted job receipt agree on metadata', async () => {
+  const f = fixture();
+  try {
+    const a = projectArtifacts(f), { project } = await a.create();
+    const runId = crypto.randomUUID(), jobId = crypto.randomUUID();
+    assert.equal((await a.request('watcher', `/projects/${project.id}/runs`, { client_id: runId, title: 'receipt', paths: ['src'] })).status, 201);
+    const result = { status: 'complete', exit_code: 0, commit: a.head, stdout: 'complete output', stderr: '', image: 'test', started_at: 1, finished_at: 2 };
+    f.sql.exec('INSERT INTO project_hosted_jobs(id,project_id,run_id,actor_id,command,status,result,created_at,kind) VALUES(?,?,?,?,?,?,?,?,?)', jobId, project.id, runId, 'watcher', 'npm test', 'complete', JSON.stringify(result), Date.now(), 'execute');
+    const compact = (await a.request('watcher', `/projects/${project.id}?include_job_output=false`)).data.jobs[0];
+    assert.equal(compact.command_omitted, true); assert.equal(compact.result.output_omitted, true);
+    assert.equal(compact.result.exit_code, 0); assert.equal('stdout' in compact.result, false); assert.equal('command' in compact, false);
+    const full = (await a.request('watcher', `/projects/${project.id}/jobs/${jobId}`)).data;
+    assert.equal(full.command, 'npm test'); assert.equal(full.result.stdout, 'complete output'); assert.equal(full.result.commit, compact.result.commit);
+    assert.equal((await a.request('watcher', `/projects/${project.id}/jobs/${crypto.randomUUID()}`)).status, 404);
+  } finally { await f.dispose(); }
+});
+
+
+test('integration receipts and compact snapshots preserve scoped metadata without output', async () => {
+  const f=fixture(); try {
+    const a=projectArtifacts(f),{project}=await a.create(),second=(await a.create()).project;
+    const runId=crypto.randomUUID(),foreignRun=crypto.randomUUID(),jobId=crypto.randomUUID(),foreignJobId=crypto.randomUUID();
+    assert.equal((await a.request('watcher',`/projects/${project.id}/runs`,{client_id:runId,title:'receipt',paths:['src']})).status,201);
+    f.sql.exec('INSERT INTO project_runs(id,project_id,actor_id,title,repository,remote,branch,base_commit,status,paths,checkpoint,cursor,created_at,updated_at,requirements_revision,revision,cancellation_reason) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',foreignRun,second.id,'watcher','foreign','foreign-repo','','main',a.root,'working','[]','',0,Date.now(),Date.now(),1,1,'');
+    const command='COMMAND_SENTINEL_RECEIPT_42',stdout='STDOUT_SENTINEL_RECEIPT_43',stderr='STDERR_SENTINEL_RECEIPT_44',error='ERROR_SENTINEL_RECEIPT_45';
+    const jobResult={status:'complete',exit_code:0,commit:a.head,stdout,stderr,error,image:'job-image',started_at:1,finished_at:2};
+    const insertJob=(id,projectId,run)=>f.sql.exec('INSERT INTO project_hosted_jobs(id,project_id,run_id,actor_id,command,status,result,created_at,kind) VALUES(?,?,?,?,?,?,?,?,?)',id,projectId,run,'watcher',command,'complete',JSON.stringify(jobResult),Date.now(),'execute');
+    insertJob(jobId,project.id,runId); insertJob(foreignJobId,second.id,foreignRun);
+    const integrationId=crypto.randomUUID(),foreignIntegrationId=crypto.randomUUID(),checks='CHECKS_SENTINEL_RECEIPT_46';
+    const integrationResult={status:'failed',exit_code:7,commit:a.head,stdout,stderr,error,image:'integration-image',started_at:3,finished_at:4};
+    const insertIntegration=(id,projectId)=>f.sql.exec('INSERT INTO project_integrations(id,project_id,actor_id,repository,candidate_ids,base_commit,commit_hash,requirements_revision,check_command,status,result,created_at,reviewed_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',id,projectId,'watcher',`repo-${id}`,'[]',a.root,a.head,1,command,'failed',JSON.stringify(integrationResult),Date.now(),null);
+    insertIntegration(integrationId,project.id); insertIntegration(foreignIntegrationId,second.id);
+    const event=(type,data,run=null)=>f.sql.exec('INSERT INTO project_events(id,project_id,actor_id,type,run_id,data,client_id,created_at) VALUES(?,?,?,?,?,?,?,?)',crypto.randomUUID(),project.id,'watcher',type,run,JSON.stringify(data),null,Date.now());
+    event('execution.started',{job_id:jobId,command},runId); event('integration.authorized',{integration_id:integrationId,checks});
+    const compact=(await a.request('watcher',`/projects/${project.id}?include_job_output=false&event_limit=100`)).data;
+    const full=(await a.request('watcher',`/projects/${project.id}?include_job_output=true&event_limit=100`)).data;
+    const browser=(await a.request('watcher',`/projects/${project.id}?event_limit=100`)).data;
+    const cj=compact.jobs.find(x=>x.id===jobId),fj=full.jobs.find(x=>x.id===jobId),ci=compact.integrations.find(x=>x.id===integrationId),fi=full.integrations.find(x=>x.id===integrationId);
+    for(const key of ['id','project_id','run_id','actor_id','kind','status','created_at']) assert.deepEqual(cj[key],fj[key]);
+    for(const key of ['status','exit_code','commit','image','started_at','finished_at']) assert.deepEqual(cj.result[key],fj.result[key]);
+    for(const key of ['id','project_id','actor_id','repository','candidate_ids','base_commit','commit_hash','requirements_revision','status','created_at','reviewed_by']) assert.deepEqual(ci[key],fi[key]);
+    for(const key of ['status','exit_code','commit','image','started_at','finished_at']) assert.deepEqual(ci.result[key],fi.result[key]);
+    const compactJson=JSON.stringify(compact); assert.equal(compactJson.includes(command),false); assert.equal(compactJson.includes(checks),false);
+    for(const detail of [full,browser]) { const json=JSON.stringify(detail); assert.ok(json.includes(command)); assert.ok(json.includes(checks)); }
+    const jr=(await a.request('watcher',`/projects/${project.id}/jobs/${jobId}`)).data;
+    assert.equal(jr.command,command); assert.equal(jr.result.stdout,stdout); assert.equal(jr.result.stderr,stderr); assert.equal(jr.result.error,error);
+    const ir=(await a.request('watcher',`/projects/${project.id}/integrations/${integrationId}`)).data;
+    assert.equal(ir.check_command,command); assert.equal(ir.result.stdout,stdout); assert.equal(ir.result.stderr,stderr); assert.equal(ir.result.error,error);
+    assert.equal((await a.request('watcher',`/projects/${project.id}/jobs/${foreignJobId}`)).status,404);
+    assert.equal((await a.request('watcher',`/projects/${project.id}/integrations/${foreignIntegrationId}`)).status,404);
+  } finally {await f.dispose();}
+});
+
+test('run source reads enforce owner, human, revocation, project bounds and no durable mutations', async () => {
+  const f=fixture(); try {
+    const a=projectArtifacts(f),{project}=await a.create();
+    const run=(await a.request('watcher',`/projects/${project.id}/runs`,{client_id:crypto.randomUUID(),title:'source',paths:[]})).data;
+    const base=`/projects/${project.id}/runs/${run.id}`, count=()=>({tokens:a.tokens.length,revoked:a.revoked.length,jobs:f.sql.exec('SELECT * FROM project_hosted_jobs').length,events:f.sql.exec('SELECT * FROM project_events').length,checkpoint:f.sql.exec('SELECT checkpoint FROM project_runs WHERE id=?',run.id)[0].checkpoint});
+    const before=count();
+    assert.equal((await a.request('watcher',`${base}/tree?commit=${a.root}`)).status,200);
+    assert.equal((await a.request('watcher',`${base}/source-file?commit=${a.root}&path=auth.ts`)).data.content,'export const expiry = 0;');
+    const sourceArgs={name:'read_project_run_file',arguments:{project_id:project.id,run_id:run.id,commit:a.root,path:'auth.ts'}};
+    const getBeforeScopes=f.env.ARTIFACTS.get; let scopedGets=0; f.env.ARTIFACTS.get=async name=>{scopedGets++;return getBeforeScopes(name);};
+    for(const scopes of [['read'],['files']]) { const denied=await f.rpc('tools/call',sourceArgs,{accountId:'watcher',workspaceId:'w',scopes,eventAuthority:f.authority}); assert.ok(denied.result.isError); assert.equal(scopedGets,0); }
+    const scopedAllowed=await f.rpc('tools/call',sourceArgs,{accountId:'watcher',workspaceId:'w',scopes:['read','files'],eventAuthority:f.authority}); assert.ok(!scopedAllowed.result.isError,JSON.stringify(scopedAllowed)); assert.ok(scopedGets>0);
+    const listed=(await f.rpc('tools/list',{}, {accountId:'watcher',workspaceId:'w',scopes:['read','files'],eventAuthority:f.authority})).result.tools;
+    for(const name of ['list_project_run_files','read_project_run_file']) assert.equal(listed.find(tool=>tool.name===name).annotations.readOnlyHint,true);
+    const get=f.env.ARTIFACTS.get; let calls=0; f.env.ARTIFACTS.get=async name=>{calls++;return get(name);};
+    assert.equal((await a.request('other-agent',`${base}/tree?commit=${a.root}`)).status,403); assert.equal(calls,0);
+    assert.equal((await a.request('alice',`${base}/tree?commit=${a.root}`)).status,200);
+    f.sql.exec("DELETE FROM channel_members WHERE channel_id='c' AND account_id='alice'"); assert.notEqual((await a.request('alice',`${base}/tree?commit=${a.root}`)).status,200);
+    assert.notEqual((await a.request('watcher',`${base}/tree?commit=${a.foreign}`)).status,200);
+    assert.notEqual((await a.request('watcher',`/projects/${crypto.randomUUID()}/runs/${run.id}/tree?commit=${a.root}`)).status,200);
+    assert.deepEqual(count(),before);
+  } finally {await f.dispose();}
+});
+
+test('run source reads recheck access after every awaited repository success and error',async()=>{
+  for(const method of ['readCommit','readTree','readBlob']) for(const fail of [false,true]) { const f=fixture(); try {
+    const a=projectArtifacts(f),{project}=await a.create(),run=(await a.request('watcher',`/projects/${project.id}/runs`,{client_id:crypto.randomUUID(),title:'source',paths:[]})).data;
+    const get=f.env.ARTIFACTS.get; let enter,release; const entered=new Promise(r=>enter=r),gate=new Promise(r=>release=r);
+    f.env.ARTIFACTS.get=async name=>{const repo=await get(name),original=repo[method];repo[method]=async(...args)=>{enter();await gate;if(fail)throw Error('read failed');return original(...args);};return repo;};
+    const file=method==='readBlob',pending=a.request('watcher',`/projects/${project.id}/runs/${run.id}/${file?'source-file':'tree'}?commit=${a.root}${file?'&path=auth.ts':''}`); await entered;
+    f.sql.exec("DELETE FROM channel_members WHERE channel_id='c' AND account_id='watcher'"); release(); const denied=await pending; assert.equal(denied.data.error,'You are not a member of this channel.',`${method} ${fail}`); assert.doesNotMatch(JSON.stringify(denied.data),/read failed/,`${method} ${fail}`);
+  } finally {await f.dispose();} }
+});
+
+
+test('compact project job metadata pages deterministically without mutating work', async () => {
+  const f=fixture(); try {
+    const a=projectArtifacts(f),{project}=await a.create(),base=`/projects/${project.id}`,runId=crypto.randomUUID();
+    assert.equal((await a.request('watcher',`${base}/runs`,{client_id:runId,title:'paged receipts',paths:[]})).status,201);
+    const ids=[],created=1700000000000;
+    for(let i=0;i<45;i++){const id=crypto.randomUUID(),result={status:'complete',exit_code:i%4,commit:a.head,stdout:`stdout-${i}`,stderr:`stderr-${i}`,error:`error-${i}`,image:`image-${i}`,started_at:i,finished_at:i+1};ids.push(id);f.sql.exec('INSERT INTO project_hosted_jobs(id,project_id,run_id,actor_id,command,status,result,created_at,kind) VALUES(?,?,?,?,?,?,?,?,?)',id,project.id,runId,'watcher',`command-${i}`,'complete',JSON.stringify(result),created+Math.floor(i/3),'execute');}
+    const state=()=>({jobs:f.sql.exec('SELECT COUNT(*) AS n FROM project_hosted_jobs')[0].n,events:f.sql.exec('SELECT COUNT(*) AS n FROM project_events')[0].n,checkpoints:f.sql.exec("SELECT COUNT(*) AS n FROM project_runs WHERE checkpoint!=''")[0].n,tokens:f.sql.exec('SELECT COUNT(*) AS n FROM project_run_tokens')[0].n}),before=state();
+    const read=async suffix=>(await a.request('watcher',`${base}?include_job_output=false${suffix}`)).data;
+    const first=await read(''),second=await read('&job_offset=20'),last=await read('&job_offset=40'),empty=await read('&job_offset=99');
+    assert.equal(first.jobs.length,20);assert.deepEqual(first.jobs_page,{offset:0,limit:20,total:45,has_more:true,next_offset:20});
+    assert.equal(second.jobs.length,20);assert.deepEqual(second.jobs_page,{offset:20,limit:20,total:45,has_more:true,next_offset:40});
+    assert.equal(last.jobs.length,5);assert.deepEqual(last.jobs_page,{offset:40,limit:20,total:45,has_more:false,next_offset:null});
+    assert.equal(empty.jobs.length,0);assert.deepEqual(empty.jobs_page,{offset:99,limit:20,total:45,has_more:false,next_offset:null});
+    const traversed=[...first.jobs,...second.jobs,...last.jobs],expected=f.sql.exec('SELECT id FROM project_hosted_jobs WHERE project_id=? ORDER BY created_at DESC,id DESC',project.id).map(row=>row.id);
+    assert.deepEqual(traversed.map(j=>j.id),expected);assert.equal(new Set(traversed.map(j=>j.id)).size,45);
+    const full=(await a.request('watcher',`${base}?include_job_output=true`)).data;assert.equal('jobs_page' in full,false);assert.equal(full.jobs.length,45);
+    for(const compact of traversed){const complete=full.jobs.find(j=>j.id===compact.id),target=(await a.request('watcher',`${base}/jobs/${compact.id}`)).data;for(const key of ['id','project_id','run_id','actor_id','kind','status','created_at'])assert.deepEqual(compact[key],complete[key]);for(const key of ['status','exit_code','commit','image','started_at','finished_at'])assert.deepEqual(compact.result[key],complete.result[key]);assert.deepEqual(target,complete);assert.equal(compact.command_omitted,true);assert.equal(compact.result.output_omitted,true);assert.equal('command' in compact,false);for(const key of ['stdout','stderr','error'])assert.equal(key in compact.result,false);}
+    assert.equal((await a.request('watcher',`${base}/jobs/${last.jobs[0].id}`)).data.id,last.jobs[0].id);
+    for(const suffix of ['&job_limit=0','&job_limit=101','&job_limit=1.5','&job_offset=-1','&job_offset=1.5'])assert.equal((await a.request('watcher',`${base}?include_job_output=false${suffix}`)).status,400);
+    assert.equal((await a.request('watcher',`${base}?include_job_output=true&job_limit=20`)).status,400);assert.equal((await a.request('watcher',`${base}?job_offset=1`)).status,400);
+    const actor={accountId:'watcher',workspaceId:'w',scopes:['read'],eventAuthority:f.authority};
+    for(const args of [{job_limit:0},{job_limit:101},{job_offset:-1},{job_limit:1.5}])assert.ok((await f.rpc('tools/call',{name:'read_project',arguments:{project_id:project.id,...args}},actor)).result.isError);
+    const mcp=(await f.rpc('tools/call',{name:'read_project',arguments:{project_id:project.id,job_limit:5,job_offset:20}},actor)).result.structuredContent.result;assert.deepEqual(mcp.jobs.map(j=>j.id),second.jobs.slice(0,5).map(j=>j.id));assert.deepEqual(mcp.jobs_page,{offset:20,limit:5,total:45,has_more:true,next_offset:25});assert.deepEqual(state(),before);
+    for(let i=45;i<105;i++)f.sql.exec('INSERT INTO project_hosted_jobs(id,project_id,run_id,actor_id,command,status,result,created_at,kind) VALUES(?,?,?,?,?,?,?,?,?)',crypto.randomUUID(),project.id,runId,'watcher',`legacy-${i}`,'complete',JSON.stringify({status:'complete',stdout:`full-${i}`,stderr:'',error:''}),created+i,'execute');
+    for(const legacy of [(await a.request('watcher',base)).data,(await a.request('watcher',`${base}?include_job_output=true`)).data]){assert.equal(legacy.jobs.length,100);assert.equal('jobs_page' in legacy,false);assert.ok(legacy.jobs.every(j=>'command' in j&&'stdout' in j.result&&'stderr' in j.result&&'error' in j.result));}
+  } finally {await f.dispose();}
 });
