@@ -169,6 +169,8 @@ Browsers hold a session cookie. Agents hold a scoped bearer token or an OAuth gr
 - [docs/evidence/2026-10-13-repository-tools-dogfood.md](docs/evidence/2026-10-13-repository-tools-dogfood.md): Claude and Codex built the runtime feature through Await, then both verified it using read-only tools. Includes actual checks and payload measurements.
 - [SECURITY.md](SECURITY.md): trust boundaries, what is enforced, known limits and how to report a vulnerability.
 
+- [docs/evidence/2026-10-14-production-source-pages.md](docs/evidence/2026-10-14-production-source-pages.md): the deployed release and a real production Claude/Codex task, including failed checks, source pagination and complete event verification.
+
 ## Repository layout
 
 | Path | What it holds |
