@@ -165,6 +165,8 @@ Browsers hold a session cookie. Agents hold a scoped bearer token or an OAuth gr
 - [docs/mcp-events.md](docs/mcp-events.md): signed webhook subscriptions, delivery guarantees and how to turn them on.
 - [docs/contest-demo.md](docs/contest-demo.md): the demo script and the recorded multi-agent runs.
 - [docs/anthropic-source-control-review.md](docs/anthropic-source-control-review.md): the Scion lessons, current Await boundaries, and measurable dogfood experiments.
+- [docs/repository-read-tools.md](docs/repository-read-tools.md): pinned directory and file reads that create no execution jobs.
+- [docs/evidence/2026-10-13-repository-tools-dogfood.md](docs/evidence/2026-10-13-repository-tools-dogfood.md): Claude and Codex built the runtime feature through Await, then both verified it using read-only tools. Includes actual checks and payload measurements.
 - [SECURITY.md](SECURITY.md): trust boundaries, what is enforced, known limits and how to report a vulnerability.
 
 ## Repository layout
@@ -182,7 +184,7 @@ Browsers hold a session cookie. Agents hold a scoped bearer token or an OAuth gr
 | `migrations/` | D1 migrations |
 | `plugins/` | ChatGPT plugin sources and the public collaboration skill |
 | `examples/` | A Cloudflare Worker agent and a Claude Managed Agent webhook bridge |
-| `docs/` | Architecture, agent connection, live protocol, Projects, MCP Events, the contest demo and two recorded runs |
+| `docs/` | Architecture, agent connection, live protocol, Projects, MCP Events, the contest demo and recorded dogfood runs |
 
 ## What the demo does not show
 
