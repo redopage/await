@@ -1,14 +1,17 @@
-import type { HostedJob, HostedResult, Integration } from '../shared/execution';
+import type { CompactHostedJob, CompactIntegration, HostedJob, HostedResult, Integration } from '../shared/execution';
 import { canonicalJson } from '../shared/json';
 import type { Env } from '../worker/env';
 import type { Member, TeamTask } from '../shared/types';
 import { forbidden, json, notFound } from '../shared/http';
 import { Db } from './sql';
-import { claimPaths, overlappingPaths, type Project, type ProjectRun, type Candidate, type ProjectEvent, type RequirementsRevision, type ProjectHandoff, type ProjectDetail } from '../shared/projects';
+import { claimPaths, overlappingPaths, type Project, type ProjectRun, type Candidate, type ProjectEvent, type RequirementsRevision, type ProjectHandoff, type ProjectDetail, type CompactProjectDetail } from '../shared/projects';
+import { readRunRepository, RunRepositoryError } from './project-repository';
 
 type Access = { member(id: string): Member; channel(id: string, actor: string): void; writer(actor: string): void; taskChanged(project: Project, actor: string, task: TeamTask, previous: TeamTask): void; signal(project: Project, actor: string, type: string, runId: string | null): void };
 type RunRow = Omit<ProjectRun, 'paths'> & { paths: string };
 type EventRow = Omit<ProjectEvent, 'data'> & { data: string };
+type CompactJobRow = Omit<CompactHostedJob, 'result' | 'command_omitted'> & { result: string };
+type CompactIntegrationRow = Omit<CompactIntegration, 'result' | 'candidate_ids' | 'command_omitted'> & { result: string; candidate_ids: string };
 
 const parseEvents = (rows: EventRow[]): ProjectEvent[] => rows.map((e) => ({ ...e, data: JSON.parse(e.data) }));
 
@@ -195,19 +198,32 @@ export class Projects {
       project = this.project(project.id, actor);
     }
     if (parts.length === 2 && method === 'GET') {
-      const raw = url.searchParams.get('after') ?? '0', after = Number(raw);
-      if (!Number.isSafeInteger(after) || after < 0) throw new Error('Choose a valid event cursor.');
-      const events = this.db.all<EventRow>('SELECT * FROM project_events WHERE project_id=? AND seq>? ORDER BY seq LIMIT 101', project.id, after);
-      const page = parseEvents(events.slice(0, 100));
-      return json({
-        ...this.snapshot(project),
-        hosted_available: Boolean(this.env.EXECUTION_URL && this.env.EXECUTION_SECRET),
-        jobs: this.jobs(project), integrations: this.integrations(project),
-        snapshot_cursor: this.db.one<{ seq: number }>('SELECT MAX(seq) AS seq FROM project_events WHERE project_id=?', project.id)?.seq ?? 0,
-        events: page, next_cursor: page.at(-1)?.seq ?? after, has_more: events.length > 100,
-      } satisfies ProjectDetail);
+      const raw = url.searchParams.get('after') ?? '0', requestedAfter = Number(raw);
+      if (!Number.isSafeInteger(requestedAfter) || requestedAfter < 0) throw new Error('Choose a valid event cursor.');
+      const includeOutput = url.searchParams.get('include_job_output') !== 'false';
+      const rawLimit = url.searchParams.get('event_limit'), eventLimit = rawLimit === null ? (includeOutput ? 100 : 20) : Number(rawLimit);
+      if (!Number.isSafeInteger(eventLimit) || eventLimit < 1 || eventLimit > 100) throw new Error('Choose an event limit from 1 to 100.');
+      const rawJobLimit = url.searchParams.get('job_limit'), rawJobOffset = url.searchParams.get('job_offset');
+      if (includeOutput && (rawJobLimit !== null || rawJobOffset !== null)) throw new Error('job_limit and job_offset are available only for compact project reads.');
+      const jobLimit = rawJobLimit === null ? 20 : Number(rawJobLimit), jobOffset = rawJobOffset === null ? 0 : Number(rawJobOffset);
+      if (!Number.isSafeInteger(jobLimit) || jobLimit < 1 || jobLimit > 100) throw new Error('Choose a job limit from 1 to 100.');
+      if (!Number.isSafeInteger(jobOffset) || jobOffset < 0) throw new Error('Choose a valid job offset.');
+      const snapshotCursor = this.db.one<{ seq: number }>('SELECT MAX(seq) AS seq FROM project_events WHERE project_id=?', project.id)?.seq ?? 0;
+      const after = Math.min(requestedAfter, snapshotCursor);
+      const events = this.db.all<EventRow>('SELECT * FROM project_events WHERE project_id=? AND seq>? AND seq<=? ORDER BY seq LIMIT ?', project.id, after, snapshotCursor, eventLimit + 1);
+      const fullPage = parseEvents(events.slice(0, eventLimit));
+      const page = includeOutput ? fullPage : fullPage.map(event => event.type === 'execution.started' && 'command' in event.data ? { ...event, data: { ...event.data, command: undefined, command_omitted: true } } : event.type === 'integration.authorized' && 'checks' in event.data ? { ...event, data: { ...event.data, checks: undefined, output_omitted: true } } : event);
+      const common = { ...this.snapshot(project), hosted_available: Boolean(this.env.EXECUTION_URL && this.env.EXECUTION_SECRET),
+        snapshot_cursor: snapshotCursor, events: page, next_cursor: page.at(-1)?.seq ?? after, has_more: events.length > eventLimit };
+      if (includeOutput) return json({ ...common, jobs: this.jobs(project), integrations: this.integrations(project) } satisfies ProjectDetail);
+      const jobs = this.compactJobs(project, jobLimit, jobOffset);
+      const total = this.db.one<{ total: number }>('SELECT COUNT(*) AS total FROM project_hosted_jobs WHERE project_id=?', project.id)?.total ?? 0;
+      const hasMoreJobs = jobOffset + jobs.length < total;
+      return json({ ...common, jobs, jobs_page: { offset: jobOffset, limit: jobLimit, total, has_more: hasMoreJobs, next_offset: hasMoreJobs ? jobOffset + jobs.length : null }, integrations: this.compactIntegrations(project) } satisfies CompactProjectDetail);
     }
     if (project.status !== 'active') throw new Error('This project is not ready.');
+    if (parts[2] === 'jobs' && parts.length === 4 && method === 'GET') { const receipt = this.job(project, id(parts[3])); if (!receipt) throw notFound('Job'); return json(receipt); }
+    if (parts[2] === 'integrations' && parts.length === 4 && method === 'GET') { const receipt = this.integration(project, id(parts[3])); if (!receipt) throw notFound('Integration'); return json(receipt); }
     const execution = await this.executionRoute(project, actor, workspaceId, parts, method, input, url);
     if (execution) return execution;
     if (method !== 'GET' && this.integrations(project, "AND status='publishing'").length) throw new Error('An authorized integration is publishing. Refresh until its outcome is known before changing this project.');
@@ -277,6 +293,11 @@ export class Projects {
     if (parts[2] === 'runs' && parts.length === 5) {
       const run = this.run(id(parts[3]), project), action = parts[4];
       if (action === 'files' && method === 'GET') return this.files(project, run, url, actor);
+      if ((action === 'tree' || action === 'source-file') && method === 'GET') {
+        if (this.access.member(actor).kind !== 'human') this.owner(run, actor);
+        try { const result = await this.repo(run.repository, repo => readRunRepository(repo, run.base_commit, url, action === 'tree' ? 'tree' : 'file')); this.access.channel(project.channel_id, actor); return json(result); }
+        catch (error) { this.access.channel(project.channel_id, actor); if (error instanceof RunRepositoryError) return json({ error: error.message }, error.status); throw error; }
+      }
       if (action === 'cancel' && method === 'POST') {
         if (run.actor_id !== actor && this.access.member(actor).kind !== 'human') throw forbidden('Only a person or this attempt’s owner can cancel it.');
         const response = this.command(project, actor, `cancel:${run.id}`, input, () => {
@@ -408,11 +429,26 @@ export class Projects {
     return this.db.all<Omit<HostedJob, 'result'> & { result: string }>(`SELECT * FROM project_hosted_jobs WHERE project_id=? ${where} ORDER BY created_at DESC LIMIT 100`, project.id, ...params).map(j => ({ ...j, result: JSON.parse(j.result) }));
   }
   private job(project: Project, id: string): HostedJob | undefined { return this.jobs(project, 'AND id=?', id)[0]; }
+  private compactJobs(project: Project, limit: number, offset: number): CompactHostedJob[] {
+    const rows = this.db.all<CompactJobRow>(`SELECT id,project_id,run_id,actor_id,kind,status,created_at,
+      json_remove(result,'$.stdout','$.stderr','$.error') AS result
+      FROM project_hosted_jobs WHERE project_id=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`, project.id, limit, offset);
+    return rows.map((row) => ({ ...row, command_omitted: true,
+      result: { ...JSON.parse(row.result), output_omitted: true } }));
+  }
   private activeJob(project: Project, runId: string): HostedJob | undefined { return this.jobs(project, "AND run_id=? AND status IN ('queued','running')", runId)[0]; }
   private integrations(project: Project, where = '', ...params: unknown[]): Integration[] {
     return this.db.all<Omit<Integration, 'result' | 'candidate_ids'> & { result: string; candidate_ids: string }>(`SELECT * FROM project_integrations WHERE project_id=? ${where} ORDER BY created_at DESC LIMIT 50`, project.id, ...params).map(i => ({ ...i, result: JSON.parse(i.result), candidate_ids: JSON.parse(i.candidate_ids) }));
   }
   private integration(project: Project, id: string): Integration | undefined { return this.integrations(project, 'AND id=?', id)[0]; }
+  private compactIntegrations(project: Project): CompactIntegration[] {
+    const rows = this.db.all<CompactIntegrationRow>(`SELECT id,project_id,actor_id,repository,candidate_ids,base_commit,
+      commit_hash,requirements_revision,status,created_at,reviewed_by,
+      json_remove(result,'$.stdout','$.stderr','$.error') AS result
+      FROM project_integrations WHERE project_id=? ORDER BY created_at DESC LIMIT 50`, project.id);
+    return rows.map((row) => ({ ...row, candidate_ids: JSON.parse(row.candidate_ids), command_omitted: true,
+      result: { ...JSON.parse(row.result), output_omitted: true } }));
+  }
   private async host(path: string, body: Record<string, unknown>): Promise<HostedResult> {
     if (!this.env.EXECUTION_URL || !this.env.EXECUTION_SECRET) throw new Error('Hosted execution is not configured.');
     const response = await fetch(`${this.env.EXECUTION_URL}${path}`, { method: 'POST', headers: { Authorization: `Bearer ${this.env.EXECUTION_SECRET}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), redirect: 'manual', signal: AbortSignal.timeout(15_000) });
