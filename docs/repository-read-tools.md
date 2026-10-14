@@ -39,7 +39,7 @@ File mode returns:
 
 | `reason` | Meaning | `size` |
 | --- | --- | --- |
-| `too_large` | More than 200000 bytes. Content is not downloaded or truncated. | Byte size |
+| `too_large` | More than 200000 bytes. Content is not decoded or returned. | Byte size |
 | `binary` | Not strict UTF-8, or contains a NUL byte. | Byte size |
 | `symlink` | A symbolic link. Its target is never read or followed. | `null` |
 | `gitlink` | A submodule. The referenced commit is never read. | `null` |
