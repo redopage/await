@@ -5,7 +5,7 @@ import type { Member, TeamTask } from '../shared/types';
 import { forbidden, json, notFound } from '../shared/http';
 import { Db } from './sql';
 import { claimPaths, overlappingPaths, type Project, type ProjectRun, type Candidate, type ProjectEvent, type RequirementsRevision, type ProjectHandoff, type ProjectDetail, type CompactProjectDetail } from '../shared/projects';
-import { readRunRepository, RunRepositoryError } from './project-repository';
+import { readRunRepository, RunRepositoryError, validateRunFileRange } from './project-repository';
 
 type Access = { member(id: string): Member; channel(id: string, actor: string): void; writer(actor: string): void; taskChanged(project: Project, actor: string, task: TeamTask, previous: TeamTask): void; signal(project: Project, actor: string, type: string, runId: string | null): void };
 type RunRow = Omit<ProjectRun, 'paths'> & { paths: string };
@@ -295,7 +295,11 @@ export class Projects {
       if (action === 'files' && method === 'GET') return this.files(project, run, url, actor);
       if ((action === 'tree' || action === 'source-file') && method === 'GET') {
         if (this.access.member(actor).kind !== 'human') this.owner(run, actor);
-        try { const result = await this.repo(run.repository, repo => readRunRepository(repo, run.base_commit, url, action === 'tree' ? 'tree' : 'file')); this.access.channel(project.channel_id, actor); return json(result); }
+        try {
+          if (action === 'source-file') validateRunFileRange(url);
+          const result = await this.repo(run.repository, repo => readRunRepository(repo, run.base_commit, url, action === 'tree' ? 'tree' : 'file'));
+          this.access.channel(project.channel_id, actor); return json(result);
+        }
         catch (error) { this.access.channel(project.channel_id, actor); if (error instanceof RunRepositoryError) return json({ error: error.message }, error.status); throw error; }
       }
       if (action === 'cancel' && method === 'POST') {

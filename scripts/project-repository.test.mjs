@@ -9,7 +9,7 @@ import { join } from 'node:path';
 const dir = await mkdtemp(join(tmpdir(), 'await-repository-tests-'));
 const compiled = await build({ stdin: { contents: `export * from './src/object/project-repository'; export * from './src/shared/project-repository';`, resolveDir: process.cwd() }, bundle: true, platform: 'node', format: 'esm', write: false });
 await writeFile(join(dir, 'runtime.mjs'), compiled.outputFiles[0].contents);
-const { readRunRepository, RunRepositoryError, RUN_REPOSITORY_LIMITS } = await import(join(dir, 'runtime.mjs'));
+const { readRunRepository, validateRunFileRange, RunRepositoryError, RUN_REPOSITORY_LIMITS } = await import(join(dir, 'runtime.mjs'));
 await rm(dir, { recursive: true, force: true });
 
 const hash = (...parts) => createHash('sha1').update(parts.join('\0')).digest('hex');
@@ -193,4 +193,165 @@ test('run repository reads use only object reads and never mutate work', async (
   await rejects(read(f, 'file', { commit: f.foreign, path: 'README.md' }), 409, /descends/);
   assert.deepEqual([...new Set(f.calls.map(([name]) => name))].sort(), ['readBlob', 'readCommit', 'readTree']);
   assert.throws(() => f.repo.createToken, /Unexpected repository access/);
+});
+
+// Bounded line pages: start_line and line_limit on file reads.
+function textFixture(files) {
+  const r = memoryRepo();
+  const base = r.commit(r.tree(Object.entries(files).map(([name, content]) => entry(name, r.blob(content), 'blob'))));
+  return { ...r, base };
+}
+const page = (f, path, params) => read(f, 'file', { commit: f.base, path, ...params });
+const window = ({ content, start_line, line_limit, total_lines, end_line, has_more, next_line, metadata_only, reason, line_too_large }) =>
+  ({ content, start_line, line_limit, total_lines, end_line, has_more, next_line, metadata_only, reason, line_too_large });
+const bytes = (text) => Buffer.byteLength(text, 'utf8');
+// Follows next_line from line 1 and returns the pages, checking each is complete, bounded and contiguous.
+async function collect(f, path, line_limit) {
+  const parts = [];
+  for (let start = 1; ;) {
+    const result = await page(f, path, { start_line: start, line_limit });
+    assert.equal(result.metadata_only, false); assert.equal(result.start_line, start);
+    assert.ok(bytes(result.content) <= RUN_REPOSITORY_LIMITS.rangeBytes);
+    parts.push(result.content);
+    if (!result.has_more) { assert.equal(result.next_line, null); return parts; }
+    assert.equal(result.next_line, result.end_line + 1); start = result.next_line;
+  }
+}
+
+test('run repository line pages are contiguous, complete and default to 100 lines', async () => {
+  const five = 'one\ntwo\nthree\nfour\nfive\n';
+  const f = textFixture({ 'five.txt': five, 'open.txt': 'a\nb', 'blank.txt': '\n\n', 'long.txt': Array.from({ length: 250 }, (_, i) => `line ${i + 1}\n`).join('') });
+  const first = await page(f, 'five.txt', { line_limit: 2 });
+  assert.deepEqual(window(first), { content: 'one\ntwo\n', start_line: 1, line_limit: 2, total_lines: 5, end_line: 2, has_more: true, next_line: 3, metadata_only: false, reason: null, line_too_large: null });
+  assert.equal(first.size, bytes(five), 'size stays the whole file size');
+  assert.deepEqual(JSON.parse(JSON.stringify(first)), first);
+  assert.deepEqual(window(await page(f, 'five.txt', { start_line: 3, line_limit: 2 })), { ...window(first), content: 'three\nfour\n', start_line: 3, end_line: 4, next_line: 5 });
+  assert.deepEqual(window(await page(f, 'five.txt', { start_line: 5, line_limit: 2 })), { ...window(first), content: 'five\n', start_line: 5, end_line: 5, has_more: false, next_line: null });
+  assert.equal((await collect(f, 'five.txt', 2)).join(''), five);
+
+  const defaults = await page(f, 'long.txt', { start_line: 1 });
+  assert.deepEqual([defaults.line_limit, defaults.end_line, defaults.next_line, defaults.total_lines], [RUN_REPOSITORY_LIMITS.lineDefault, 100, 101, 250]);
+  assert.ok(defaults.content.startsWith('line 1\n') && defaults.content.endsWith('line 100\n'));
+  const onlyLimit = await page(f, 'long.txt', { line_limit: 200 });
+  assert.deepEqual([onlyLimit.start_line, onlyLimit.end_line, onlyLimit.next_line], [1, 200, 201]);
+  assert.equal((await page(f, 'long.txt', { start_line: 201, line_limit: 200 })).content.split('\n').length - 1, 50);
+
+  const open = await page(f, 'open.txt', { start_line: 2 });
+  assert.deepEqual([open.content, open.total_lines, open.end_line, open.has_more], ['b', 2, 2, false]);
+  assert.equal((await page(f, 'five.txt', { start_line: 1 })).total_lines, 5, 'a trailing newline adds no empty line');
+  const blank = await page(f, 'blank.txt', { start_line: 2, line_limit: 5 });
+  assert.deepEqual([blank.content, blank.total_lines, blank.end_line], ['\n', 2, 2]);
+});
+
+test('run repository line pages report empty files and starts beyond EOF without a next page', async () => {
+  const f = textFixture({ 'empty.txt': '', 'five.txt': 'one\ntwo\nthree\nfour\nfive\n' });
+  const none = { content: '', end_line: null, has_more: false, next_line: null, metadata_only: false, reason: null, line_too_large: null };
+  assert.deepEqual(window(await page(f, 'empty.txt', { start_line: 1 })), { ...none, start_line: 1, line_limit: 100, total_lines: 0 });
+  assert.deepEqual(window(await page(f, 'empty.txt', { start_line: 7, line_limit: 3 })), { ...none, start_line: 7, line_limit: 3, total_lines: 0 });
+  assert.deepEqual(window(await page(f, 'five.txt', { start_line: 6 })), { ...none, start_line: 6, line_limit: 100, total_lines: 5 });
+  const far = await page(f, 'five.txt', { start_line: Number.MAX_SAFE_INTEGER, line_limit: 1 });
+  assert.deepEqual([far.content, far.has_more, far.next_line, far.total_lines], ['', false, null, 5]);
+});
+
+test('run repository line pages round-trip multibyte UTF-8 and CRLF exactly', async () => {
+  const mixed = 'café\r\n中文 😀\r\nlone\rreturn\n\r\nééé\r\nlast 😀 no newline';
+  const wide = Array.from({ length: 30 }, (_, i) => `${'é'.repeat(998)}${i % 10}\r\n`).join('');
+  const f = textFixture({ 'mixed.txt': mixed, 'wide.txt': wide });
+  for (const limit of [1, 2, 3, 200]) assert.equal((await collect(f, 'mixed.txt', limit)).join(''), mixed);
+  assert.deepEqual((await collect(f, 'mixed.txt', 1)).slice(0, 3), ['café\r\n', '中文 😀\r\n', 'lone\rreturn\n'], 'only LF ends a line');
+  assert.equal((await page(f, 'mixed.txt', { start_line: 1 })).total_lines, 6);
+  const bom = textFixture({ 'bom.txt': '\ufeffhead\r\nbody\n' });
+  assert.deepEqual(await collect(bom, 'bom.txt', 1), ['\ufeffhead\r\n', 'body\n'], 'a leading BOM is kept in range mode');
+  assert.equal((await read(bom, 'file', { commit: bom.base, path: 'bom.txt' })).content, 'head\r\nbody\n', 'whole-file decoding is unchanged');
+
+  const pages = await collect(f, 'wide.txt', 200);
+  assert.equal(pages.join(''), wide);
+  assert.deepEqual(pages.map(bytes), [15992, 15992, 15992, 11994], 'eight 1999-byte lines fit a 16000-byte page');
+});
+
+test('run repository line pages end before a line that would pass the byte cap', async () => {
+  const cap = RUN_REPOSITORY_LIMITS.rangeBytes;
+  assert.equal(cap, 16_000);
+  const half = `${'a'.repeat(cap / 2 - 1)}\n`, exact = `${'x'.repeat(cap - 1)}\n`, euro = `${'€'.repeat(5333)}\n`;
+  const f = textFixture({ 'halves.txt': half + half + half, 'exact.txt': `${exact}tail\n`, 'euro.txt': `${euro}${euro}` });
+  const halves = await page(f, 'halves.txt', { start_line: 1, line_limit: 3 });
+  assert.deepEqual([bytes(halves.content), halves.end_line, halves.has_more, halves.next_line], [cap, 2, true, 3]);
+  const rest = await page(f, 'halves.txt', { start_line: 3 });
+  assert.deepEqual([rest.content, rest.has_more, rest.next_line], [half, false, null]);
+  const exactly = await page(f, 'exact.txt', { start_line: 1 });
+  assert.deepEqual([exactly.content, exactly.end_line, exactly.next_line, exactly.metadata_only], [exact, 1, 2, false]);
+  assert.equal(bytes(euro), cap);
+  const euros = await page(f, 'euro.txt', { start_line: 1 });
+  assert.deepEqual([euros.content, euros.next_line], [euro, 2]);
+});
+
+test('run repository line pages report a first line over the byte cap as metadata only', async () => {
+  const cap = RUN_REPOSITORY_LIMITS.rangeBytes, huge = `${'y'.repeat(cap)}\n`, euro = `${'€'.repeat(5334)}\n`;
+  const f = textFixture({ 'mixed.txt': `short\n${huge}tail\n`, 'last.txt': `ok\n${'z'.repeat(cap + 1)}`, 'euro.txt': euro });
+  const before = await page(f, 'mixed.txt', { start_line: 1, line_limit: 3 });
+  assert.deepEqual([before.content, before.end_line, before.has_more, before.next_line], ['short\n', 1, true, 2]);
+  const skipped = await page(f, 'mixed.txt', { start_line: 2, line_limit: 3 });
+  assert.deepEqual(window(skipped), { content: null, start_line: 2, line_limit: 3, total_lines: 3, end_line: null, has_more: true, next_line: 2, metadata_only: true, reason: 'line_too_large', line_too_large: 2 });
+  assert.equal(skipped.size, bytes(`short\n${huge}tail\n`));
+  assert.equal((await page(f, 'mixed.txt', { start_line: 3 })).content, 'tail\n', 'a caller may explicitly choose a later line');
+  const last = await page(f, 'last.txt', { start_line: 2 });
+  assert.deepEqual([last.content, last.metadata_only, last.reason, last.line_too_large, last.has_more, last.next_line], [null, true, 'line_too_large', 2, true, 2]);
+  const multibyte = await page(f, 'euro.txt', { line_limit: 1 });
+  assert.deepEqual([multibyte.content, multibyte.reason, multibyte.line_too_large, multibyte.next_line], [null, 'line_too_large', 1, 1]);
+});
+
+test('run repository rejects invalid line ranges before any repository read', async () => {
+  const f = fixture();
+  for (const start_line of ['0', '-1', '1.5', 'abc', '', ' 1', '1e2', '0x10', '9007199254740992']) await rejects(read(f, 'file', { commit: f.base, path: 'README.md', start_line }), 400, /start_line/);
+  for (const line_limit of ['0', '201', '', 'x', '2.5', '-3', '1e1']) await rejects(read(f, 'file', { commit: f.base, path: 'README.md', line_limit }), 400, /line_limit/);
+  await rejects(read(f, 'file', { commit: f.base, path: 'README.md', start_line: '1', line_limit: '500' }), 400, /line_limit/);
+  assert.deepEqual(f.calls, []);
+  assert.equal((await read(f, 'file', { commit: f.base, path: 'README.md', start_line: '0001', line_limit: '200' })).line_limit, 200);
+});
+
+test('run repository range reads keep metadata results honest and old reads unchanged', async () => {
+  const f = fixture();
+  const legacy = await read(f, 'file', { commit: f.base, path: 'README.md' });
+  assert.deepEqual(Object.keys(legacy), ['commit', 'path', 'type', 'oid', 'size', 'content', 'metadata_only', 'reason']);
+  const ranged = await read(f, 'file', { commit: f.base, path: 'README.md', start_line: 1 });
+  const { start_line, line_limit, total_lines, end_line, has_more, next_line, line_too_large, ...rest } = ranged;
+  assert.deepEqual(rest, legacy);
+  assert.deepEqual([start_line, line_limit, total_lines, end_line, has_more, next_line, line_too_large], [1, 100, 1, 1, false, null, null]);
+
+  const before = f.bodies();
+  const large = await read(f, 'file', { commit: f.base, path: 'large.txt', line_limit: 5 });
+  assert.equal(f.bodies(), before, 'oversized content is never downloaded in range mode');
+  const unpaged = { content: null, metadata_only: true, start_line: 1, line_limit: 5, total_lines: null, end_line: null, has_more: false, next_line: null, line_too_large: null };
+  assert.deepEqual(window(large), { ...unpaged, reason: 'too_large' });
+  assert.equal(large.size, 200_001);
+  for (const [path, reason] of [['logo.png', 'binary'], ['latin1.txt', 'binary'], ['linked', 'symlink'], ['escape', 'symlink'], ['vendor', 'gitlink']]) {
+    assert.deepEqual(window(await read(f, 'file', { commit: f.base, path, line_limit: 5 })), { ...unpaged, reason });
+  }
+  assert.deepEqual(f.calls.filter(([, oid]) => [f.link, f.escape, f.submodule].includes(oid)), []);
+  const limit = await read(f, 'file', { commit: f.base, path: 'limit.txt', start_line: 1 });
+  assert.deepEqual([limit.size, limit.content, limit.reason, limit.line_too_large, limit.total_lines, limit.next_line], [200_000, null, 'line_too_large', 1, 1, 1]);
+
+  assert.equal((await read(f, 'tree', { commit: f.base, start_line: 'ignored' })).total, 10, 'tree listings ignore line range parameters');
+  assert.deepEqual([...new Set(f.calls.map(([name]) => name))].sort(), ['readBlob', 'readCommit', 'readTree']);
+});
+
+test('run file range validation is pure and refuses exactly what a source-file read refuses', async () => {
+  const f = fixture();
+  const ranged = (params) => url('file', { commit: f.base, path: 'README.md', ...params });
+  for (const params of [{}, { start_line: '1' }, { line_limit: '200' }, { start_line: '0001', line_limit: '1' }, { start_line: String(Number.MAX_SAFE_INTEGER) }]) {
+    assert.equal(validateRunFileRange(ranged(params)), undefined);
+  }
+  assert.equal(validateRunFileRange(new URL('https://await.test/source-file?commit=bad&path=../x&limit=0')), undefined, 'only range parameters are checked');
+  const invalid = [
+    ...['0', '-1', '1.5', 'abc', '', ' 1', '1e2', '0x10', '9007199254740992'].map((start_line) => ({ start_line })),
+    ...['0', '201', '', 'x', '2.5', '-3', '1e1'].map((line_limit) => ({ line_limit })),
+    { start_line: '1', line_limit: '500' }, { start_line: '0', line_limit: '5' },
+  ];
+  for (const params of invalid) {
+    let thrown;
+    assert.throws(() => validateRunFileRange(ranged(params)), (error) => { thrown = error; return error instanceof RunRepositoryError && error.status === 400; });
+    assert.match(thrown.message, 'start_line' in params && params.start_line !== '1' ? /start_line/ : /line_limit/);
+    await assert.rejects(read(f, 'file', { commit: f.base, path: 'README.md', ...params }), (error) => error instanceof RunRepositoryError && error.status === 400 && error.message === thrown.message);
+  }
+  assert.deepEqual(f.calls, [], 'validation and refused reads never touch the repository');
 });

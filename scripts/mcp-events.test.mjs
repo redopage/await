@@ -1899,12 +1899,23 @@ test('run source reads enforce owner, human, revocation, project bounds and no d
     const before=count();
     assert.equal((await a.request('watcher',`${base}/tree?commit=${a.root}`)).status,200);
     assert.equal((await a.request('watcher',`${base}/source-file?commit=${a.root}&path=auth.ts`)).data.content,'export const expiry = 0;');
-    const sourceArgs={name:'read_project_run_file',arguments:{project_id:project.id,run_id:run.id,commit:a.root,path:'auth.ts'}};
+    const ranged=(await a.request('watcher',`${base}/source-file?commit=${a.root}&path=auth.ts&start_line=1&line_limit=1`)).data;
+    assert.equal(ranged.content,'export const expiry = 0;'); assert.equal(ranged.start_line,1); assert.equal(ranged.line_limit,1); assert.equal(ranged.total_lines,1); assert.equal(ranged.has_more,false); assert.equal(ranged.next_line,null);
+    const sourceArgs={name:'read_project_run_file',arguments:{project_id:project.id,run_id:run.id,commit:a.root,path:'auth.ts',start_line:1,line_limit:1}};
     const getBeforeScopes=f.env.ARTIFACTS.get; let scopedGets=0; f.env.ARTIFACTS.get=async name=>{scopedGets++;return getBeforeScopes(name);};
     for(const scopes of [['read'],['files']]) { const denied=await f.rpc('tools/call',sourceArgs,{accountId:'watcher',workspaceId:'w',scopes,eventAuthority:f.authority}); assert.ok(denied.result.isError); assert.equal(scopedGets,0); }
     const scopedAllowed=await f.rpc('tools/call',sourceArgs,{accountId:'watcher',workspaceId:'w',scopes:['read','files'],eventAuthority:f.authority}); assert.ok(!scopedAllowed.result.isError,JSON.stringify(scopedAllowed)); assert.ok(scopedGets>0);
+    const mcpRange=JSON.parse(scopedAllowed.result.content[0].text);
+    assert.equal(mcpRange.content,'export const expiry = 0;'); assert.equal(mcpRange.start_line,1); assert.equal(mcpRange.line_limit,1); assert.equal(mcpRange.total_lines,1); assert.equal(mcpRange.has_more,false); assert.equal(mcpRange.next_line,null); assert.equal(mcpRange.metadata_only,false);
+    const readsAfterValid=scopedGets;
+    for(const arguments_ of [{...sourceArgs.arguments,start_line:0},{...sourceArgs.arguments,line_limit:201}]) {
+      const invalid=await f.rpc('tools/call',{name:'read_project_run_file',arguments:arguments_},{accountId:'watcher',workspaceId:'w',scopes:['read','files'],eventAuthority:f.authority});
+      assert.ok(invalid.result.isError,JSON.stringify(invalid)); assert.equal(scopedGets,readsAfterValid);
+    }
+    for(const query of ['start_line=0','line_limit=201']) { assert.equal((await a.request('watcher',base+'/source-file?commit='+a.root+'&path=auth.ts&'+query)).status,400); assert.equal(scopedGets,readsAfterValid); }
     const listed=(await f.rpc('tools/list',{}, {accountId:'watcher',workspaceId:'w',scopes:['read','files'],eventAuthority:f.authority})).result.tools;
     for(const name of ['list_project_run_files','read_project_run_file']) assert.equal(listed.find(tool=>tool.name===name).annotations.readOnlyHint,true);
+    const rangeSchema=listed.find(tool=>tool.name==='read_project_run_file').inputSchema.properties; assert.deepEqual(rangeSchema.start_line,{type:'integer',minimum:1}); assert.deepEqual(rangeSchema.line_limit,{type:'integer',minimum:1,maximum:200});
     const get=f.env.ARTIFACTS.get; let calls=0; f.env.ARTIFACTS.get=async name=>{calls++;return get(name);};
     assert.equal((await a.request('other-agent',`${base}/tree?commit=${a.root}`)).status,403); assert.equal(calls,0);
     assert.equal((await a.request('alice',`${base}/tree?commit=${a.root}`)).status,200);

@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
-import { validateCall, allowedTools, readOnlyTools, serve, providerFailure, runProjectAgent } from './await-project-agent.mjs';
+import { validateCall, allowedTools, readOnlyTools, serve, providerFailure, projectAgentPrompt, runProjectAgent } from './await-project-agent.mjs';
 
 test('project broker denies cross-project commands and credential or approval tools', () => {
   const config = { projectId: 'assigned' };
@@ -117,4 +117,23 @@ test('read-only transport lists only read tools and denies writes before forward
 test('read-only verification requires runId before setup', async () => {
   await assert.rejects(serve({ origin:'https://await.example', token:'secret', projectId:'assigned', readOnly:true }, new PassThrough(), new PassThrough()), /existing runId/);
   await assert.rejects(runProjectAgent({ origin:'https://await.example', token:'secret', projectId:'assigned', assignment:'verify', readOnly:true }), /existing runId/);
+});
+
+test('project agent prompts both roles with safe bounded paging guidance', () => {
+  for (const readOnly of [false, true]) {
+    const prompt = projectAgentPrompt({ projectId: 'project', taskId: 'task', assignment: 'inspect', readOnly, runId: 'run' });
+    assert.match(prompt, /small bounded text pages with start_line and line_limit/);
+    assert.match(prompt, /event_limit at most 20/);
+    assert.match(prompt, /preferably smaller when notes are dense/);
+    assert.match(prompt, /follow next_cursor sequentially/);
+    assert.match(prompt, /same unread cursor with smaller event_limit and job_limit/);
+    assert.match(prompt, /Never skip an unread event range/);
+    assert.match(prompt, /local overflow dump files/);
+    assert.match(prompt, /Continue from next_line only while metadata_only is false and has_more is true/);
+    assert.match(prompt, /Stop on metadata_only, because line_too_large keeps next_line on the unread line/);
+  }
+  const coding = projectAgentPrompt({ projectId: 'project', assignment: 'build' });
+  assert.match(coding, /Warm run containers may reuse state/);
+  assert.match(coding, /untracked dependencies are not durable across cold restarts/);
+  assert.match(coding, /Install dependencies when absent and use the repository compiler, not unrelated bare npx tsc/);
 });
